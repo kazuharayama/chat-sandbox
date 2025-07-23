@@ -1,13 +1,7 @@
-import './App.css'
-import Chat from './components/Chat'
+import TailwindSample from './pages/TailwindSample'
 
 function App() {
-  return (
-    <div className="app-container">
-      <h1>チャットインターフェース</h1>
-      <Chat />
-    </div>
-  )
+  return <TailwindSample />
 }
 
 export default App

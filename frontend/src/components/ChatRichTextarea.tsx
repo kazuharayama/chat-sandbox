@@ -6,8 +6,8 @@ import React, {
   useState,
   useRef,
   useEffect,
-  KeyboardEvent,
-  ReactNode,
+  type KeyboardEvent,
+  type ReactNode,
 } from "react";
 import { Paperclip, ArrowRight } from "lucide-react";
 
