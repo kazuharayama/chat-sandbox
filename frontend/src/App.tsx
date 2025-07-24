@@ -1,7 +1,7 @@
-import TailwindSample from './pages/TailwindSample'
+import Chat from './pages/Chat'
 
 function App() {
-  return <TailwindSample />
+  return <Chat />
 }
 
 export default App
