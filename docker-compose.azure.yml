@@ -1,0 +1,34 @@
+version: '3'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/frontend/Dockerfile
+      target: production
+    image: ${AZURE_CONTAINER_REGISTRY}.azurecr.io/${APP_NAME}-frontend:${IMAGE_TAG}
+    environment:
+      - VITE_API_URL=/api
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../docker/backend/Dockerfile
+      target: production
+    image: ${AZURE_CONTAINER_REGISTRY}.azurecr.io/${APP_NAME}-backend:${IMAGE_TAG}
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ENVIRONMENT=azure
+      - AZURE_ENTRA_ID_CLIENT_ID=${AZURE_ENTRA_ID_CLIENT_ID}
+      - AZURE_ENTRA_ID_TENANT_ID=${AZURE_ENTRA_ID_TENANT_ID}
+
+  nginx:
+    build:
+      context: ./docker/nginx
+      dockerfile: Dockerfile
+    image: ${AZURE_CONTAINER_REGISTRY}.azurecr.io/${APP_NAME}-nginx:${IMAGE_TAG}
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+      - backend

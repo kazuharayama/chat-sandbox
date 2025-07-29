@@ -4,7 +4,8 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: ../docker/frontend/Dockerfile
+      target: development
     ports:
       - "5173:5173"
     volumes:
@@ -18,10 +19,21 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: ../docker/backend/Dockerfile
+      target: development
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+
+  nginx:
+    build:
+      context: ./docker/nginx
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+      - backend
