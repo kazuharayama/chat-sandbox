@@ -62,7 +62,7 @@ export default function Chat() {
   };
 
   return (
-    <div className="h-screen flex bg-gray-50">
+    <div className="flex flex-1 h-full bg-gray-50 overflow-hidden">
       {/* Sidebar */}
       <div className="w-72 bg-white border-r border-gray-200 flex flex-col shadow-sm">
         {/* Header */}
@@ -109,7 +109,7 @@ export default function Chat() {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col bg-white">
+      <div className="flex-1 flex flex-col h-full bg-white overflow-hidden">
         {/* Chat Header */}
         <div className="p-4 border-b border-gray-200 bg-white">
           <div className="flex items-center justify-between">

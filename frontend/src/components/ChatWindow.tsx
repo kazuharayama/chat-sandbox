@@ -21,9 +21,9 @@ export default function ChatWindow({ messages, loading = false }: ChatWindowProp
   }, [messages, loading]);
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
+    <div className="flex-1 flex flex-col bg-white overflow-hidden h-full">
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 h-full">
         {messages.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center max-w-md">

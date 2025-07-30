@@ -3,6 +3,12 @@ FROM python:3.11-slim AS base
 
 WORKDIR /app
 
+# システム依存関係をインストール
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    poppler-utils \
+    tesseract-ocr \
+    && rm -rf /var/lib/apt/lists/*
+
 # 依存関係ファイルをコピー
 COPY requirements.txt .
 
