@@ -16,7 +16,7 @@ FROM base AS development
 COPY . .
 
 # Expose the development port
-EXPOSE 5173
+EXPOSE 5174
 
 # 開発環境用の起動コマンド
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
