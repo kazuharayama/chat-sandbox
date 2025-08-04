@@ -24,12 +24,29 @@ from langchain.chains import RetrievalQA
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 
+# Langfuse import
+from langfuse.langchain import CallbackHandler
+
 # 環境変数の読み込み
 load_dotenv()
 
 # APIキーの確認
 if not os.getenv("OPENAI_API_KEY"):
     print("警告: OPENAI_API_KEYが設定されていません。.envファイルに設定してください。")
+
+# Langfuse設定の確認
+if not os.getenv("LANGFUSE_HOST"):
+    os.environ["LANGFUSE_HOST"] = "http://localhost:3000"
+    print(f"LANGFUSE_HOST設定: {os.getenv('LANGFUSE_HOST')}")
+
+# Langfuseハンドラーの初期化
+try:
+    langfuse_handler = CallbackHandler()
+    print("Langfuseハンドラーが正常に初期化されました")
+except Exception as e:
+    print(f"Langfuseハンドラーの初期化に失敗しました: {e}")
+    print("Langfuseトレーシングは無効になります。アプリケーションは正常に動作します。")
+    langfuse_handler = None
 
 # データ保存用ディレクトリの作成
 DOCS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs")
@@ -206,7 +223,10 @@ async def query_documents(request: QueryRequest):
             vector_store = initialize_vector_store()
         
         # LLMの初期化
-        llm = ChatOpenAI(temperature=0.7)
+        llm = ChatOpenAI(
+            model=os.getenv("OPENAI_MODEL_NAME", "gpt-4"),
+            temperature=0.7
+        )
         
         if request.use_rag and vector_store:
             # RAGを使用した質問応答
@@ -236,7 +256,10 @@ async def query_documents(request: QueryRequest):
             # ドキュメント取得と結果の生成
             docs = retriever.get_relevant_documents(request.query)
             sources = [doc.metadata.get("source", "不明なソース") for doc in docs]
-            response = rag_chain.invoke(request.query)
+            
+            # Langfuseトレースを含めてRAGチェーンを実行
+            config = {"callbacks": [langfuse_handler]} if langfuse_handler else {}
+            response = rag_chain.invoke(request.query, config=config)
             
             return {"response": response, "sources": sources}
         else:
@@ -245,7 +268,10 @@ async def query_documents(request: QueryRequest):
                 "次の質問に{language}で答えてください: {query}"
             )
             chain = prompt | llm | StrOutputParser()
-            response = chain.invoke({"query": request.query, "language": request.language})
+            
+            # Langfuseトレースを含めて通常のチェーンを実行
+            config = {"callbacks": [langfuse_handler]} if langfuse_handler else {}
+            response = chain.invoke({"query": request.query, "language": request.language}, config=config)
             
             return {"response": response, "sources": []}
     except Exception as e:
@@ -261,7 +287,10 @@ async def chat_endpoint(request: ChatRequest):
             vector_store = initialize_vector_store()
         
         # LLMの初期化
-        llm = ChatOpenAI(temperature=0.7)
+        llm = ChatOpenAI(
+            model=os.getenv("OPENAI_MODEL_NAME", "gpt-4"),
+            temperature=0.7
+        )
         
         # 入力メッセージの処理
         input_text = request.message
@@ -306,7 +335,14 @@ async def chat_endpoint(request: ChatRequest):
             # ドキュメント取得と結果の生成
             docs = retriever.get_relevant_documents(input_text)
             sources = [doc.metadata.get("source", "不明なソース") for doc in docs]
-            response = rag_chain.invoke(input_text)
+            
+            # Langfuseトレースを含めてRAGチェーンを実行
+            try:
+                config = {"callbacks": [langfuse_handler]} if langfuse_handler else {}
+                response = rag_chain.invoke(input_text, config=config)
+            except Exception as callback_error:
+                print(f"Langfuseコールバックエラーを無視して実行を継続: {callback_error}")
+                response = rag_chain.invoke(input_text)
             
             return {"response": response, "sources": sources}
         else:
@@ -323,7 +359,10 @@ async def chat_endpoint(request: ChatRequest):
             
             prompt = ChatPromptTemplate.from_template(prompt_template)
             chain = prompt | llm | StrOutputParser()
-            response = chain.invoke({"message": input_text, "language": request.language})
+            
+            # Langfuseトレースを含めて通常のチェーンを実行
+            config = {"callbacks": [langfuse_handler]} if langfuse_handler else {}
+            response = chain.invoke({"message": input_text, "language": request.language}, config=config)
             
             return {"response": response, "sources": []}
     except Exception as e:
