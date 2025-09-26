@@ -12,6 +12,11 @@ python-multipart==0.0.6
 langfuse==3.0.0
 # RAG関連のライブラリ
 langchain-community==0.0.13
+# PostgreSQL + pgvector関連
+langchain-postgres==0.0.6
+psycopg2-binary==2.9.7
+sqlalchemy==2.0.23
+# 既存のベクターDB（段階的移行用）
 chroma-hnswlib==0.7.3
 chromadb==0.4.18
 faiss-cpu==1.7.4

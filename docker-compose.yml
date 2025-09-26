@@ -32,12 +32,38 @@ services:
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
       - LANGFUSE_HOST=${LANGFUSE_HOST:-http://host.docker.internal:3000}
+      # PostgreSQL接続設定
+      - DATABASE_URL=postgresql://chat_user:chat_pass@postgres:5432/chat_db
+      - DB_HOST=postgres
+      - DB_USER=chat_user
+      - DB_PASSWORD=chat_pass
+      - DB_NAME=chat_db
+      - DB_PORT=5432
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    # depends_on:
-    #   - langfuse-web  # Langfuseが先に起動するように
-    # external_links:
-    #   - langfuse-web:langfuse
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    build:
+      context: ./docker/postgres
+      dockerfile: Dockerfile
+    container_name: chat_postgres_pgvector
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: chat_user
+      POSTGRES_PASSWORD: chat_pass
+      POSTGRES_DB: chat_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chat_user -d chat_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   nginx:
     build:
@@ -48,5 +74,8 @@ services:
     depends_on:
       - frontend
       - backend
+
+volumes:
+  postgres_data:
 
 # Langfuseは外部で起動済みのため、デフォルトネットワークを使用

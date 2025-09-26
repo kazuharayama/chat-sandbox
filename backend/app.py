@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import documents, chat, speech
-from routers.documents import initialize_vector_store
+from utils.pgvector_manager import PGVectorManager
 
 # FastAPIアプリケーションの設定
 app = FastAPI(title="LangChain RAGシステム")
@@ -20,10 +20,16 @@ app.include_router(documents.router, tags=["documents"])
 app.include_router(chat.router, tags=["chat"])
 app.include_router(speech.router, tags=["speech"])
 
-# アプリ起動時にベクトルストアを初期化
+# アプリ起動時にPGVectorを初期化
 @app.on_event("startup")
 async def startup_event():
-    initialize_vector_store()
+    try:
+        # PGVectorManagerの初期化
+        PGVectorManager.get_instance()
+        print("PGVector initialized successfully")
+    except Exception as e:
+        print(f"Warning: Failed to initialize PGVector: {e}")
+        print("The application will continue without vector search functionality")
 
 @app.get("/")
 def read_root():

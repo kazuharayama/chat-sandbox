@@ -6,8 +6,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
-from config import get_vector_store
-from routers.documents import initialize_vector_store
+from utils.pgvector_manager import PGVectorManager
 
 router = APIRouter()
 
@@ -24,11 +23,14 @@ class ChatResponse(BaseModel):
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     try:
-        vector_store = get_vector_store()
+        vector_manager = None
         
-        if request.use_rag and vector_store is None:
-            # ベクトルストアがない場合は初期化を試みる
-            vector_store = initialize_vector_store()
+        if request.use_rag:
+            try:
+                vector_manager = PGVectorManager.get_instance()
+            except Exception as e:
+                print(f"Error initializing PGVector: {e}")
+                vector_manager = None
         
         # LLMの初期化
         llm = ChatOpenAI(
@@ -40,12 +42,20 @@ async def chat_endpoint(request: ChatRequest):
         input_text = request.message
         has_attachment = request.hasAttachment
         
-        if request.use_rag and vector_store:
+        if request.use_rag and vector_manager:
             # RAGを使用したチャット応答
-            retriever = vector_store.as_retriever(
-                search_type="similarity",
-                search_kwargs={"k": 3}
-            )
+            try:
+                # PGVectorで類似度検索を実行
+                docs = vector_manager.similarity_search(input_text, k=3)
+                
+                # コンテキストを作成
+                context = "\n\n".join([doc.page_content for doc in docs])
+                sources = [doc.metadata.get("source", "不明なソース") for doc in docs]
+            except Exception as e:
+                print(f"Error in similarity search: {e}")
+                docs = []
+                context = ""
+                sources = []
             
             # プロンプトテンプレート
             if has_attachment:
@@ -68,21 +78,14 @@ async def chat_endpoint(request: ChatRequest):
             
             prompt = ChatPromptTemplate.from_template(template)
             
-            # RAGチェーンの構築
-            rag_chain = (
-                {"context": retriever, "message": RunnablePassthrough(), "language": lambda _: request.language}
-                | prompt
-                | llm
-                | StrOutputParser()
-            )
-            
-            # ドキュメント取得と結果の生成
-            docs = retriever.get_relevant_documents(input_text)
-            sources = [doc.metadata.get("source", "不明なソース") for doc in docs]
-            
-            # RAGチェーンを実行
-            config = {}
-            response = rag_chain.invoke(input_text, config=config)
+            # プロンプトにコンテキストを直接渡す
+            response = llm.invoke([
+                {"role": "system", "content": template.format(
+                    message=input_text,
+                    language=request.language, 
+                    context=context
+                )}
+            ]).content
             
             return {"response": response, "sources": sources}
         else:
