@@ -12,17 +12,7 @@ pip install -r requirements.txt
 2. `.env`ファイルを作成し、必要なAPIキーを設定します:
 ```
 OPENAI_API_KEY=your_openai_api_key
-
-# Langfuse Settings (LLMトレーシング・可視化)
-LANGFUSE_HOST=http://localhost:3000
-LANGFUSE_PUBLIC_KEY=your_langfuse_public_key
-LANGFUSE_SECRET_KEY=your_langfuse_secret_key
 ```
-
-**Langfuse統合について:**
-- LangfuseはLLMアプリケーションのトレーシングと可視化を提供します
-- ローカルでLangfuseを起動している場合（`http://localhost:3000`）、上記の設定でトレースが自動的に送信されます
-- Langfuseダッシュボードで、LLMの実行ログ、パフォーマンス、コストを分析できます
 
 3. アプリケーションを起動します:
 ```bash
@@ -50,12 +40,6 @@ uvicorn app:app --reload
 - RAGを使ったチャット応答 (`/chat` エンドポイント)
 - 添付ファイル対応（画像など）
 - 情報源の表示
-
-### LLMトレーシング・可視化（Langfuse統合）
-- 全てのLLM実行が自動的にトレースされます
-- Langfuseダッシュボードでリアルタイム監視
-- パフォーマンス分析とコスト追跡
-- プロンプトエンジニアリングとデバッグ支援
 
 ## Docker環境での実行
 
