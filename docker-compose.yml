@@ -11,9 +11,6 @@ services:
       - /app/node_modules
     environment:
       - VITE_API_URL=http://backend:8000
-      # Langfuse接続用の環境変数を追加
-      - VITE_LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
-      - VITE_LANGFUSE_HOST=${LANGFUSE_HOST:-http://localhost:3000}
     depends_on:
       - backend
 
@@ -28,10 +25,6 @@ services:
       - ./backend:/app
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      # Langfuse設定を追加
-      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
-      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
-      - LANGFUSE_HOST=${LANGFUSE_HOST:-http://host.docker.internal:3000}
       # PostgreSQL接続設定
       - DATABASE_URL=postgresql://chat_user:chat_pass@postgres:5432/chat_db
       - DB_HOST=postgres
@@ -77,5 +70,3 @@ services:
 
 volumes:
   postgres_data:
-
-# Langfuseは外部で起動済みのため、デフォルトネットワークを使用
