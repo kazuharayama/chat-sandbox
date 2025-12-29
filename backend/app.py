@@ -1,7 +1,14 @@
+import os
+
+from azure.monitor.opentelemetry import configure_azure_monitor
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from routers import documents, chat, speech
 from utils.pgvector_manager import PGVectorManager
+
+if os.getenv("APPINSIGHTS_CONNECTION_STRING"):
+    configure_azure_monitor()
 
 # FastAPIアプリケーションの設定
 app = FastAPI(title="LangChain RAGシステム")
