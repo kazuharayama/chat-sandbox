@@ -41,6 +41,17 @@ resource "azurerm_resource_group" "main" {
   tags     = local.tags
 }
 
+module "network" {
+  source = "../vnet"
+
+  resource_group_name      = azurerm_resource_group.main.name
+  location                 = azurerm_resource_group.main.location
+  vnet_name                = "${local.resource_name_prefix}-vnet"
+  containerapp_subnet_name = "containerapp"
+  containerapp_subnet_prefix = "10.10.0.0/23"
+  tags                     = local.tags
+}
+
 # Azure Container Registry
 resource "azurerm_container_registry" "acr" {
   name                = replace("${local.resource_name_prefix}acr", "-", "")
@@ -104,6 +115,13 @@ resource "azurerm_key_vault_secret" "entra_tenant_id" {
   content_type = "Azure Entra ID tenant id"
 }
 
+resource "azurerm_key_vault_secret" "app_insights_connection_string" {
+  name         = "app-insights-connection-string"
+  value        = azurerm_application_insights.main.connection_string
+  key_vault_id = azurerm_key_vault.main.id
+  content_type = "Application Insights connection string"
+}
+
 # Log Analytics Workspace
 resource "azurerm_log_analytics_workspace" "main" {
   name                = "${local.resource_name_prefix}-law"
@@ -114,12 +132,22 @@ resource "azurerm_log_analytics_workspace" "main" {
   tags                = local.tags
 }
 
+resource "azurerm_application_insights" "main" {
+  name                = "${local.resource_name_prefix}-appi"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  workspace_id        = azurerm_log_analytics_workspace.main.id
+  application_type    = "web"
+  tags                = local.tags
+}
+
 # Container Apps Environment
 resource "azurerm_container_app_environment" "main" {
   name                       = "${local.resource_name_prefix}-env"
   resource_group_name        = azurerm_resource_group.main.name
   location                   = azurerm_resource_group.main.location
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+  infrastructure_subnet_id   = module.network.containerapp_subnet_id
   tags                       = local.tags
 }
 
@@ -174,6 +202,21 @@ resource "azurerm_container_app" "backend" {
       env {
         name  = "AZURE_ENTRA_ID_TENANT_ID"
         secret_name = "entra-tenant-id"
+      }
+
+      secret {
+        name                = "app-insights-connection-string"
+        key_vault_secret_id = azurerm_key_vault_secret.app_insights_connection_string.id
+      }
+
+      env {
+        name        = "APPINSIGHTS_CONNECTION_STRING"
+        secret_name = "app-insights-connection-string"
+      }
+
+      env {
+        name  = "APPLICATIONINSIGHTS_ROLE_NAME"
+        value = "${local.resource_name_prefix}-backend"
       }
     }
   }
@@ -304,6 +347,27 @@ resource "azurerm_monitor_diagnostic_setting" "key_vault" {
 
   log {
     category = "AuditEvent"
+    enabled  = true
+  }
+
+  metric {
+    category = "AllMetrics"
+    enabled  = true
+  }
+}
+
+resource "azurerm_monitor_diagnostic_setting" "backend_container_app" {
+  name                       = "${local.resource_name_prefix}-backend-diag"
+  target_resource_id         = azurerm_container_app.backend.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+
+  log {
+    category = "ContainerAppConsoleLogs"
+    enabled  = true
+  }
+
+  log {
+    category = "ContainerAppSystemLogs"
     enabled  = true
   }
 
