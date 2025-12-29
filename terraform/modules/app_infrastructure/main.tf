@@ -13,6 +13,18 @@ variable "app_name" {
   type        = string
 }
 
+variable "entra_client_id" {
+  description = "Azure Entra ID クライアントID"
+  type        = string
+  sensitive   = true
+}
+
+variable "entra_tenant_id" {
+  description = "Azure Entra ID テナントID"
+  type        = string
+  sensitive   = true
+}
+
 locals {
   resource_name_prefix = "${var.app_name}-${var.environment}"
   tags = {
@@ -35,8 +47,61 @@ resource "azurerm_container_registry" "acr" {
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
   sku                 = "Standard"
-  admin_enabled       = true
+  admin_enabled       = false
   tags                = local.tags
+}
+
+data "azurerm_client_config" "current" {}
+
+resource "azurerm_role_assignment" "app_identity_acr_pull" {
+  scope                = azurerm_container_registry.acr.id
+  role_definition_name = "AcrPull"
+  principal_id         = azurerm_user_assigned_identity.app_identity.principal_id
+}
+
+resource "azurerm_key_vault" "main" {
+  name                            = replace("${local.resource_name_prefix}-kv", "-", "")
+  location                        = azurerm_resource_group.main.location
+  resource_group_name             = azurerm_resource_group.main.name
+  tenant_id                       = data.azurerm_client_config.current.tenant_id
+  sku_name                        = "standard"
+  purge_protection_enabled        = true
+  soft_delete_retention_days      = 90
+  enabled_for_deployment          = false
+  enabled_for_disk_encryption     = false
+  enabled_for_template_deployment = false
+  public_network_access_enabled   = true
+  tags                            = local.tags
+}
+
+resource "azurerm_key_vault_access_policy" "current_user" {
+  key_vault_id = azurerm_key_vault.main.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = data.azurerm_client_config.current.object_id
+
+  secret_permissions = ["Get", "List", "Set", "Delete", "Purge"]
+}
+
+resource "azurerm_key_vault_access_policy" "app_identity" {
+  key_vault_id = azurerm_key_vault.main.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = azurerm_user_assigned_identity.app_identity.principal_id
+
+  secret_permissions = ["Get", "List"]
+}
+
+resource "azurerm_key_vault_secret" "entra_client_id" {
+  name         = "entra-client-id"
+  value        = var.entra_client_id
+  key_vault_id = azurerm_key_vault.main.id
+  content_type = "Azure Entra ID client id"
+}
+
+resource "azurerm_key_vault_secret" "entra_tenant_id" {
+  name         = "entra-tenant-id"
+  value        = var.entra_tenant_id
+  key_vault_id = azurerm_key_vault.main.id
+  content_type = "Azure Entra ID tenant id"
 }
 
 # Log Analytics Workspace
@@ -85,20 +150,30 @@ resource "azurerm_container_app" "backend" {
       image  = "${azurerm_container_registry.acr.login_server}/${var.app_name}-backend:latest"
       cpu    = 0.5
       memory = "1Gi"
-      
+
+      secret {
+        name                 = "entra-client-id"
+        key_vault_secret_id  = azurerm_key_vault_secret.entra_client_id.id
+      }
+
+      secret {
+        name                 = "entra-tenant-id"
+        key_vault_secret_id  = azurerm_key_vault_secret.entra_tenant_id.id
+      }
+
       env {
         name  = "ENVIRONMENT"
         value = "azure"
       }
-      
+
       env {
         name  = "AZURE_ENTRA_ID_CLIENT_ID"
-        value = "#{AZURE_ENTRA_ID_CLIENT_ID}#"  # Azure Key Vaultから取得または環境変数から設定
+        secret_name = "entra-client-id"
       }
-      
+
       env {
         name  = "AZURE_ENTRA_ID_TENANT_ID"
-        value = "#{AZURE_ENTRA_ID_TENANT_ID}#"  # Azure Key Vaultから取得または環境変数から設定
+        secret_name = "entra-tenant-id"
       }
     }
   }
@@ -106,7 +181,8 @@ resource "azurerm_container_app" "backend" {
   ingress {
     external_enabled = true
     target_port      = 8000
-    transport        = "http"
+    transport                 = "auto"
+    allow_insecure_connections = false
   }
 
   registry {
@@ -150,7 +226,8 @@ resource "azurerm_container_app" "frontend" {
   ingress {
     external_enabled = true
     target_port      = 80
-    transport        = "http"
+    transport                 = "auto"
+    allow_insecure_connections = false
   }
 
   registry {
@@ -184,8 +261,9 @@ resource "azurerm_container_app" "nginx" {
   ingress {
     external_enabled = true
     target_port      = 80
-    transport        = "http"
-    
+    transport                 = "auto"
+    allow_insecure_connections = false
+
     traffic_weight {
       percentage      = 100
       latest_revision = true
@@ -195,6 +273,43 @@ resource "azurerm_container_app" "nginx" {
   registry {
     server   = azurerm_container_registry.acr.login_server
     identity = azurerm_user_assigned_identity.app_identity.id
+  }
+}
+
+resource "azurerm_monitor_diagnostic_setting" "acr" {
+  name                       = "${local.resource_name_prefix}-acr-diag"
+  target_resource_id         = azurerm_container_registry.acr.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+
+  log {
+    category = "ContainerRegistryLoginEvents"
+    enabled  = true
+  }
+
+  log {
+    category = "ContainerRegistryRepositoryEvents"
+    enabled  = true
+  }
+
+  metric {
+    category = "AllMetrics"
+    enabled  = true
+  }
+}
+
+resource "azurerm_monitor_diagnostic_setting" "key_vault" {
+  name                       = "${local.resource_name_prefix}-kv-diag"
+  target_resource_id         = azurerm_key_vault.main.id
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+
+  log {
+    category = "AuditEvent"
+    enabled  = true
+  }
+
+  metric {
+    category = "AllMetrics"
+    enabled  = true
   }
 }
 

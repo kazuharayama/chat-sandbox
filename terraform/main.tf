@@ -33,12 +33,26 @@ variable "app_name" {
   default     = "chat-sandbox"
 }
 
+variable "entra_client_id" {
+  description = "コンテナアプリが使用するAzure Entra ID クライアントID (Key Vaultに格納)"
+  type        = string
+  sensitive   = true
+}
+
+variable "entra_tenant_id" {
+  description = "コンテナアプリが使用するAzure Entra ID テナントID (Key Vaultに格納)"
+  type        = string
+  sensitive   = true
+}
+
 # 環境ごとのモジュール呼び出し
 module "app_infrastructure" {
   source      = "./modules/app_infrastructure"
   environment = var.environment
   location    = var.location
   app_name    = var.app_name
+  entra_client_id = var.entra_client_id
+  entra_tenant_id = var.entra_tenant_id
 }
 
 # 出力値
