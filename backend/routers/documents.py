@@ -66,6 +66,8 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
             "filename": original_filename,
             "status": "アップロード成功、インデックス作成中"
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"ドキュメントアップロード中にエラーが発生しました: {str(e)}")
 
 def process_document(file_path: str, document_id: str):
     """Process uploaded document and add to vector store."""
