@@ -1,12 +1,16 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List
-import os
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
-from langchain_core.runnables import RunnablePassthrough
+from langchain_openai import AzureChatOpenAI
 from langchain_core.output_parsers import StrOutputParser
 from utils.pgvector_manager import PGVectorManager
+from config import (
+    AZURE_OPENAI_API_KEY,
+    AZURE_OPENAI_ENDPOINT,
+    AZURE_OPENAI_API_VERSION,
+    AZURE_OPENAI_LLM_DEPLOYMENT,
+)
 
 router = APIRouter()
 
@@ -32,10 +36,13 @@ async def chat_endpoint(request: ChatRequest):
                 print(f"Error initializing PGVector: {e}")
                 vector_manager = None
         
-        # LLMの初期化
-        llm = ChatOpenAI(
-            model=os.getenv("OPENAI_MODEL_NAME", "gpt-4"),
-            temperature=0.7
+        # LLMの初期化（Azure OpenAI）
+        llm = AzureChatOpenAI(
+            azure_deployment=AZURE_OPENAI_LLM_DEPLOYMENT,
+            azure_endpoint=AZURE_OPENAI_ENDPOINT,
+            api_key=AZURE_OPENAI_API_KEY,
+            api_version=AZURE_OPENAI_API_VERSION,
+            temperature=0.7,
         )
         
         # 入力メッセージの処理

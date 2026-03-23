@@ -1,25 +1,25 @@
-langchain==0.1.0
-langchain-openai==0.0.2
-langchain-core==0.1.10
-langgraph==0.0.20
-python-dotenv==1.0.0
+# Web framework
 fastapi==0.104.1
 uvicorn==0.24.0
 pydantic==2.4.2
-websockets==11.0.3
 python-multipart==0.0.6
-# RAG関連のライブラリ
-langchain-community==0.0.13
-# PostgreSQL + pgvector関連
+python-dotenv==1.0.0
+
+# LangChain
+langchain==0.1.20
+langchain-openai==0.0.8
+langchain-core==0.1.52
+langchain-community==0.0.38
+
+# PostgreSQL + pgvector
 langchain-postgres==0.0.6
 psycopg2-binary==2.9.7
 sqlalchemy==2.0.23
-# 既存のベクターDB（段階的移行用）
-chroma-hnswlib==0.7.3
-chromadb==0.4.18
-faiss-cpu==1.7.4
+
+# Langfuse - LLMトレーシング・可視化
+langfuse==3.0.0
+
+# ドキュメント処理
 unstructured==0.10.30
 pdf2image==1.17.0
-# poppler-utilsはシステムパッケージとしてインストール
 pytesseract==0.3.10
-azure-monitor-opentelemetry==1.6.2

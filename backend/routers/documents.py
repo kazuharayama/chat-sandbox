@@ -10,7 +10,7 @@ from langchain_community.document_loaders import (
     CSVLoader
 )
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_openai import OpenAIEmbeddings
+from langchain_openai import AzureOpenAIEmbeddings
 from utils.pgvector_manager import PGVectorManager
 from config import DOCS_DIR
 
@@ -106,8 +106,6 @@ def process_document(file_path: str, document_id: str):
         
     except Exception as e:
         print(f"Error processing document {document_id}: {e}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"ドキュメントアップロード中にエラーが発生しました: {str(e)}")
 
 @router.get("/documents")
 async def list_documents():

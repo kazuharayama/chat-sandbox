@@ -4,8 +4,8 @@ FROM postgres:16
 RUN apt-get update && \
     apt-get install -y git build-essential flex bison postgresql-server-dev-16
 
-# Clone and build Apache AGE
-RUN git clone https://github.com/apache/age.git && \
+# Clone and build Apache AGE (PG16 compatible version)
+RUN git clone --branch PG16/v1.6.0-rc0 https://github.com/apache/age.git && \
     cd age && \
     make PG_CONFIG=/usr/lib/postgresql/16/bin/pg_config && \
     make install

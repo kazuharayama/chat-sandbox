@@ -1,10 +1,15 @@
 import logging
-import os
 from typing import List, Optional
 from langchain.schema import Document
 from langchain_postgres import PGVector
-from langchain_openai import OpenAIEmbeddings
+from langchain_openai import AzureOpenAIEmbeddings
 from utils.db_connection import get_database_url
+from config import (
+    AZURE_OPENAI_API_KEY,
+    AZURE_OPENAI_ENDPOINT,
+    AZURE_OPENAI_API_VERSION,
+    AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
+)
 from sqlalchemy import create_engine, text
 
 # Configure logging
@@ -13,7 +18,12 @@ logger = logging.getLogger(__name__)
 
 class PGVectorManager:
     def __init__(self, collection_name: str = "chat_documents"):
-        self.embeddings = OpenAIEmbeddings()
+        self.embeddings = AzureOpenAIEmbeddings(
+            azure_deployment=AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
+            azure_endpoint=AZURE_OPENAI_ENDPOINT,
+            api_key=AZURE_OPENAI_API_KEY,
+            api_version=AZURE_OPENAI_API_VERSION,
+        )
         self.collection_name = collection_name
         self.connection_str = get_database_url()
         
