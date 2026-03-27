@@ -3,6 +3,7 @@ import logging
 from typing import AsyncGenerator, List, Optional
 
 from langchain_openai import AzureChatOpenAI
+from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
 
 from core.config import Settings
 from models.chat import ChatRequest, ChatResponse
@@ -51,6 +52,19 @@ class ChatService:
             temperature=0.7,
             streaming=True,
         )
+
+        # Langfuse tracing (v4: uses LANGFUSE_* env vars automatically)
+        self.langfuse_handler = None
+        if settings.langfuse_public_key and settings.langfuse_secret_key:
+            try:
+                import os
+                os.environ.setdefault("LANGFUSE_PUBLIC_KEY", settings.langfuse_public_key)
+                os.environ.setdefault("LANGFUSE_SECRET_KEY", settings.langfuse_secret_key)
+                os.environ.setdefault("LANGFUSE_HOST", settings.langfuse_host or "http://langfuse-web:3000")
+                self.langfuse_handler = LangfuseCallbackHandler()
+                logger.info("Langfuse tracing enabled")
+            except Exception as e:
+                logger.warning("Failed to initialize Langfuse: %s", e)
 
     def _get_prompt(self, prompt_key: str, fallback: str) -> str:
         """Get prompt from DB, fallback to hardcoded default."""
@@ -119,7 +133,8 @@ class ChatService:
             self.chat_repo.add_message(session_id, "user", request.message)
 
         messages, sources = self._build_messages(request, session_id)
-        response = self.llm.invoke(messages).content
+        config = {"callbacks": [self.langfuse_handler]} if self.langfuse_handler else {}
+        response = self.llm.invoke(messages, config=config).content
 
         if self.chat_repo and session_id:
             self.chat_repo.add_message(session_id, "bot", response, sources)
@@ -142,7 +157,8 @@ class ChatService:
             yield f"data: {json.dumps({'type': 'sources', 'sources': sources}, ensure_ascii=False)}\n\n"
 
         full_response = ""
-        async for chunk in self.llm.astream(messages):
+        config = {"callbacks": [self.langfuse_handler]} if self.langfuse_handler else {}
+        async for chunk in self.llm.astream(messages, config=config):
             content = chunk.content
             if content:
                 full_response += content

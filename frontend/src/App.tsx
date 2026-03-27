@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Chat from './pages/Chat'
 import Documents from './pages/Documents'
 import Admin from './pages/Admin'
-import { MessageSquare, FileText, Settings } from 'lucide-react'
+import { MessageSquare, FileText, Settings, Activity } from 'lucide-react'
 
 type Page = 'chat' | 'documents' | 'admin'
 
@@ -20,6 +20,16 @@ function App() {
       <header className="flex items-center justify-between px-6 py-3 border-b border-gray-100">
         <div className="flex items-center gap-2">
           <span className="text-lg font-semibold text-gray-900">Chat AI</span>
+          <a
+            href="http://localhost:3000"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-400 hover:text-blue-500 transition-colors"
+            title="Langfuse トレース"
+          >
+            <Activity className="w-3.5 h-3.5" />
+            Langfuse
+          </a>
         </div>
         <nav className="flex items-center gap-1 bg-gray-100 rounded-full p-1">
           {tabs.map(tab => (

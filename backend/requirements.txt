@@ -19,7 +19,7 @@ psycopg[binary]==3.1.18
 sqlalchemy==2.0.23
 
 # Langfuse - LLMトレーシング・可視化
-langfuse==3.0.0
+langfuse>=3.0.0
 
 # ドキュメント処理
 unstructured==0.10.30
