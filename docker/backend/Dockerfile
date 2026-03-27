@@ -7,6 +7,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     tesseract-ocr \
+    tesseract-ocr-jpn \
     && rm -rf /var/lib/apt/lists/*
 
 # 依存関係ファイルをコピー
@@ -28,7 +29,7 @@ COPY . .
 EXPOSE 8000 5678
 
 # デバッグモードで実行可能なコマンド
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 # 本番環境用ステージ
 FROM base AS production
@@ -47,4 +48,4 @@ USER appuser
 EXPOSE 8000
 
 # 本番環境用の起動コマンド
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

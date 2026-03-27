@@ -113,6 +113,7 @@ export default function Documents() {
               <option value="pdf">PDF (.pdf)</option>
               <option value="markdown">Markdown (.md)</option>
               <option value="csv">CSV (.csv)</option>
+              <option value="image">画像 (.png, .jpg, .gif)</option>
             </select>
           </div>
           
