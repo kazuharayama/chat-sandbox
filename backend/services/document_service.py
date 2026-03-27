@@ -109,5 +109,30 @@ class DocumentService:
         self.vector_repo.add_documents(chunks)
         logger.info("Document %s processed and indexed (%d chunks)", document_id, len(chunks))
 
+    def delete_document(self, document_id: str) -> None:
+        """Delete document from blob storage and vector stores."""
+        # Find the file in blob storage
+        documents = self.document_repo.list_documents()
+        target = next((d for d in documents if d.document_id == document_id), None)
+        if not target:
+            raise ValueError(f"ドキュメントが見つかりません: {document_id}")
+
+        # Delete from blob storage
+        self.document_repo.delete_file(target.filename)
+
+        # Delete from vector store
+        extension = "." + target.filename.rsplit(".", 1)[-1].lower()
+        if extension in IMAGE_EXTENSIONS:
+            if self.image_repo:
+                try:
+                    self.image_repo.delete_by_document_id(document_id)
+                except Exception as e:
+                    logger.warning("Failed to delete image embeddings: %s", e)
+        else:
+            if self.vector_repo:
+                self.vector_repo.delete_by_document_id(document_id)
+
+        logger.info("Document deleted: %s", document_id)
+
     def list_documents(self) -> List[DocumentInfo]:
         return self.document_repo.list_documents()

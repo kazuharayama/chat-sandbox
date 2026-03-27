@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.config import get_settings
 from core.dependencies import init_dependencies
 from core.logging import setup_logging
-from routers import chat, documents
+from routers import chat, documents, sessions
 
 
 @asynccontextmanager
@@ -29,6 +29,7 @@ app.add_middleware(
 
 app.include_router(chat.router, tags=["chat"])
 app.include_router(documents.router, tags=["documents"])
+app.include_router(sessions.router)
 
 
 @app.get("/")

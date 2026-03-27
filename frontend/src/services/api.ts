@@ -1,5 +1,6 @@
 interface ChatRequest {
   message: string;
+  session_id?: string | null;
   language?: string;
   hasAttachment?: boolean;
   use_rag?: boolean;
@@ -32,10 +33,12 @@ interface DocumentListResponse {
   documents: Document[];
 }
 
-interface QueryRequest {
-  query: string;
-  language?: string;
-  use_rag?: boolean;
+interface StreamCallbacks {
+  onToken: (token: string) => void;
+  onSources: (sources: string[]) => void;
+  onSession?: (sessionId: string) => void;
+  onDone: () => void;
+  onError: (error: Error) => void;
 }
 
 class ApiService {
@@ -46,124 +49,158 @@ class ApiService {
   }
 
   async sendMessage(request: ChatRequest): Promise<ChatResponse> {
+    const response = await fetch(`${this.baseUrl}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: request.message,
+        language: request.language || '日本語',
+        hasAttachment: request.hasAttachment || false,
+        use_rag: request.use_rag !== undefined ? request.use_rag : true,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  }
+
+  async sendMessageStream(request: ChatRequest, callbacks: StreamCallbacks): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/chat/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: request.message,
+        session_id: request.session_id || null,
+        language: request.language || '日本語',
+        hasAttachment: request.hasAttachment || false,
+        use_rag: request.use_rag !== undefined ? request.use_rag : true,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('No response body');
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
     try {
-      const response = await fetch(`${this.baseUrl}/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: request.message,
-          language: request.language || '日本語',
-          hasAttachment: request.hasAttachment || false,
-          use_rag: request.use_rag !== undefined ? request.use_rag : true,
-        }),
-      });
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = JSON.parse(line.slice(6));
+
+          if (data.type === 'token') {
+            callbacks.onToken(data.content);
+          } else if (data.type === 'sources') {
+            callbacks.onSources(data.sources);
+          } else if (data.type === 'session') {
+            callbacks.onSession?.(data.session_id);
+          } else if (data.type === 'done') {
+            callbacks.onDone();
+          }
+        }
       }
-
-      return await response.json();
     } catch (error) {
-      console.error('Error sending message:', error);
-      throw new Error('メッセージの送信中にエラーが発生しました');
+      callbacks.onError(error instanceof Error ? error : new Error('Stream error'));
     }
   }
 
   async uploadDocument(request: DocumentUploadRequest): Promise<DocumentResponse> {
-    try {
-      const formData = new FormData();
-      formData.append('file', request.file);
-      formData.append('document_type', request.document_type);
+    const formData = new FormData();
+    formData.append('file', request.file);
+    formData.append('document_type', request.document_type);
 
-      const response = await fetch(`${this.baseUrl}/upload`, {
-        method: 'POST',
-        body: formData,
-      });
+    const response = await fetch(`${this.baseUrl}/upload`, {
+      method: 'POST',
+      body: formData,
+    });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error uploading document:', error);
-      throw new Error('ドキュメントのアップロード中にエラーが発生しました');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
+    return await response.json();
   }
 
   async getDocuments(): Promise<DocumentListResponse> {
-    try {
-      const response = await fetch(`${this.baseUrl}/documents`, {
-        method: 'GET',
-      });
+    const response = await fetch(`${this.baseUrl}/documents`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  }
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error getting documents:', error);
-      throw new Error('ドキュメント一覧の取得中にエラーが発生しました');
+  async deleteDocument(documentId: string): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/documents/${documentId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
   }
 
-  async queryDocuments(request: QueryRequest): Promise<ChatResponse> {
-    try {
-      const response = await fetch(`${this.baseUrl}/query`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: request.query,
-          language: request.language || '日本語',
-          use_rag: request.use_rag !== undefined ? request.use_rag : true,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error querying documents:', error);
-      throw new Error('ドキュメントの検索中にエラーが発生しました');
-    }
+  // Sessions
+  async createSession(): Promise<Session> {
+    const response = await fetch(`${this.baseUrl}/sessions`, { method: 'POST' });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
   }
 
-  async speechToText(audioFile: File): Promise<{ text: string }> {
-    try {
-      const formData = new FormData();
-      formData.append('audio', audioFile);
+  async listSessions(): Promise<Session[]> {
+    const response = await fetch(`${this.baseUrl}/sessions`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  }
 
-      const response = await fetch(`${this.baseUrl}/speech-to-text`, {
-        method: 'POST',
-        body: formData,
-      });
+  async getSessionMessages(sessionId: string): Promise<SessionMessage[]> {
+    const response = await fetch(`${this.baseUrl}/sessions/${sessionId}/messages`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  }
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error converting speech to text:', error);
-      throw new Error('音声のテキスト変換中にエラーが発生しました');
-    }
+  async deleteSession(sessionId: string): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/sessions/${sessionId}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
   }
 }
 
+interface Session {
+  id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface SessionMessage {
+  id: string;
+  session_id: string;
+  role: 'user' | 'bot';
+  content: string;
+  sources: string[];
+  created_at: string;
+}
+
 export const apiService = new ApiService();
-export type { 
-  ChatRequest, 
-  ChatResponse, 
+export type {
+  ChatRequest,
+  ChatResponse,
   DocumentUploadRequest,
-  DocumentResponse, 
+  DocumentResponse,
   Document,
   DocumentListResponse,
-  QueryRequest 
+  StreamCallbacks,
+  Session,
+  SessionMessage,
 };

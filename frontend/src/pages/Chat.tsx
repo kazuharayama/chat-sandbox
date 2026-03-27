@@ -1,14 +1,16 @@
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { apiService } from '../services/api';
+import type { Session } from '../services/api';
 import ChatWindow from '../components/ChatWindow';
 import MessageInput from '../components/MessageInput';
+import { MessageSquare, Plus, Trash2 } from 'lucide-react';
 
-interface Message {
+export interface Message {
   id: string;
   content: string;
   sender: 'user' | 'bot';
   timestamp: Date;
-  fileName?: string;
+  sources?: string[];
 }
 
 function getDocumentType(file: File): string {
@@ -23,76 +25,178 @@ function getDocumentType(file: File): string {
 
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSendMessage = async (content: string, file?: File) => {
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: file
-        ? `${content || 'ファイルをアップロードしました'}\n📎 ${file.name}`
-        : content,
-      sender: 'user',
-      timestamp: new Date(),
-      fileName: file?.name,
-    };
+  // Load sessions on mount
+  useEffect(() => {
+    apiService.listSessions().then(setSessions).catch(console.error);
+  }, []);
 
-    setMessages((prev) => [...prev, userMessage]);
-    setLoading(true);
+  const refreshSessions = async () => {
+    const list = await apiService.listSessions();
+    setSessions(list);
+  };
+
+  const handleNewChat = () => {
+    setCurrentSessionId(null);
+    setMessages([]);
     setError(null);
+  };
 
+  const handleSelectSession = async (sessionId: string) => {
+    setCurrentSessionId(sessionId);
+    setError(null);
     try {
-      if (file) {
-        await apiService.uploadDocument({
-          file,
-          document_type: getDocumentType(file),
-        });
-      }
-
-      const response = await apiService.sendMessage({
-        message: content || `${file?.name} の内容を教えてください`,
-        language: '日本語',
-        hasAttachment: !!file,
-        use_rag: true,
-      });
-
-      const botMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: response.response,
-        sender: 'bot',
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, botMessage]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'エラーが発生しました');
-    } finally {
-      setLoading(false);
+      const msgs = await apiService.getSessionMessages(sessionId);
+      setMessages(
+        msgs.map((m) => ({
+          id: m.id,
+          content: m.content,
+          sender: m.role as 'user' | 'bot',
+          timestamp: new Date(m.created_at),
+          sources: m.sources,
+        }))
+      );
+    } catch {
+      setError('履歴の読み込みに失敗しました');
     }
   };
 
-  const handleStartRecording = () => {
-    console.log('音声録音機能（未実装）');
+  const handleDeleteSession = async (sessionId: string) => {
+    await apiService.deleteSession(sessionId);
+    if (currentSessionId === sessionId) handleNewChat();
+    await refreshSessions();
   };
 
+  const handleSendMessage = useCallback(
+    async (content: string, file?: File) => {
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        content: file
+          ? `${content || 'ファイルをアップロードしました'}\n📎 ${file.name}`
+          : content,
+        sender: 'user',
+        timestamp: new Date(),
+      };
+
+      const botId = (Date.now() + 1).toString();
+
+      setMessages((prev) => [...prev, userMessage]);
+      setLoading(true);
+      setError(null);
+
+      try {
+        if (file) {
+          await apiService.uploadDocument({
+            file,
+            document_type: getDocumentType(file),
+          });
+        }
+
+        // Add empty bot message for streaming
+        setMessages((prev) => [
+          ...prev,
+          { id: botId, content: '', sender: 'bot', timestamp: new Date(), sources: [] },
+        ]);
+
+        await apiService.sendMessageStream(
+          {
+            message: content || `${file?.name} の内容を教えてください`,
+            session_id: currentSessionId,
+            language: '日本語',
+            hasAttachment: !!file,
+            use_rag: true,
+          },
+          {
+            onToken: (token) => {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === botId ? { ...m, content: m.content + token } : m
+                )
+              );
+            },
+            onSession: (sessionId) => {
+              setCurrentSessionId(sessionId);
+            },
+            onSources: (sources) => {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === botId ? { ...m, sources } : m
+                )
+              );
+            },
+            onDone: () => {
+              setLoading(false);
+              refreshSessions();
+            },
+            onError: (err) => {
+              setError(err.message);
+              setLoading(false);
+            },
+          }
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'エラーが発生しました');
+        setLoading(false);
+      }
+    },
+    [currentSessionId]
+  );
+
   return (
-    <div className="flex flex-col h-full bg-white">
-      {/* Error banner */}
-      {error && (
-        <div className="px-4 py-2 bg-red-50 border-b border-red-100">
-          <p className="text-sm text-red-600 text-center">{error}</p>
+    <div className="flex h-full bg-white">
+      {/* Sidebar */}
+      <div className="w-64 bg-gray-50 border-r border-gray-200 flex flex-col">
+        <div className="p-3">
+          <button
+            onClick={handleNewChat}
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            新しいチャット
+          </button>
         </div>
-      )}
 
-      {/* Messages */}
-      <ChatWindow messages={messages} loading={loading} />
+        <div className="flex-1 overflow-y-auto px-2 pb-2">
+          {sessions.map((session) => (
+            <div
+              key={session.id}
+              className={`group flex items-center gap-1 px-3 py-2 mb-0.5 rounded-lg cursor-pointer text-sm transition-colors ${
+                currentSessionId === session.id
+                  ? 'bg-gray-200 text-gray-900'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              onClick={() => handleSelectSession(session.id)}
+            >
+              <MessageSquare className="w-4 h-4 flex-shrink-0 text-gray-400" />
+              <span className="flex-1 truncate">{session.title}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteSession(session.id);
+                }}
+                className="opacity-0 group-hover:opacity-100 p-0.5 hover:text-red-500 transition-all"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
 
-      {/* Input */}
-      <MessageInput
-        onSendMessage={handleSendMessage}
-        onStartRecording={handleStartRecording}
-        disabled={loading}
-      />
+      {/* Main */}
+      <div className="flex-1 flex flex-col">
+        {error && (
+          <div className="px-4 py-2 bg-red-50 border-b border-red-100">
+            <p className="text-sm text-red-600 text-center">{error}</p>
+          </div>
+        )}
+        <ChatWindow messages={messages} loading={loading} />
+        <MessageInput onSendMessage={handleSendMessage} disabled={loading} />
+      </div>
     </div>
   );
 }

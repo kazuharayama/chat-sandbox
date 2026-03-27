@@ -1,24 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Mic, AudioLines, X, FileText, Paperclip, Clock, Image, Search, ChevronRight, MoreHorizontal } from 'lucide-react';
+import { Plus, Send, X, FileText, Paperclip } from 'lucide-react';
 
 interface MessageInputProps {
   onSendMessage: (message: string, file?: File) => void;
-  onStartRecording: () => void;
   disabled?: boolean;
 }
 
 const ACCEPT_TYPES = '.txt,.pdf,.md,.csv,.png,.jpg,.jpeg,.gif,.bmp,.webp';
 
-interface MenuItem {
-  icon: React.ReactNode;
-  label: string;
-  action: () => void;
-  hasArrow?: boolean;
-}
-
 export default function MessageInput({
   onSendMessage,
-  onStartRecording,
   disabled = false,
 }: MessageInputProps) {
   const [message, setMessage] = useState('');
@@ -92,14 +83,6 @@ export default function MessageInput({
     setPreviewUrl(null);
   };
 
-  const menuItems: MenuItem[] = [
-    { icon: <Paperclip className="w-5 h-5" />, label: '写真とファイルを追加', action: handleFileSelect },
-    { icon: <Clock className="w-5 h-5" />, label: '最近のファイル', action: () => setShowMenu(false), hasArrow: true },
-    { icon: <Image className="w-5 h-5" />, label: '画像を作成する', action: () => setShowMenu(false) },
-    { icon: <Search className="w-5 h-5" />, label: 'ウェブ検索', action: () => setShowMenu(false) },
-    { icon: <MoreHorizontal className="w-5 h-5" />, label: 'さらに表示', action: () => setShowMenu(false), hasArrow: true },
-  ];
-
   return (
     <div className="w-full max-w-3xl mx-auto px-4 pb-6">
       {/* Attached file preview */}
@@ -126,17 +109,13 @@ export default function MessageInput({
         {/* Popup Menu */}
         {showMenu && (
           <div className="absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-lg border border-gray-200 py-2 w-64 z-50">
-            {menuItems.map((item, i) => (
-              <button
-                key={i}
-                onClick={item.action}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                <span className="text-gray-500">{item.icon}</span>
-                <span className="flex-1 text-left">{item.label}</span>
-                {item.hasArrow && <ChevronRight className="w-4 h-4 text-gray-400" />}
-              </button>
-            ))}
+            <button
+              onClick={handleFileSelect}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <span className="text-gray-500"><Paperclip className="w-5 h-5" /></span>
+              <span className="flex-1 text-left">写真とファイルを追加</span>
+            </button>
           </div>
         )}
 
@@ -173,34 +152,14 @@ export default function MessageInput({
             rows={1}
           />
 
-          {/* Mic Button */}
+          {/* Send Button */}
           <button
-            type="button"
-            onClick={onStartRecording}
-            className="flex-shrink-0 w-10 h-10 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors"
-            disabled={disabled}
+            type="submit"
+            disabled={(!message.trim() && !attachedFile) || disabled}
+            className="flex-shrink-0 w-10 h-10 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 rounded-full flex items-center justify-center transition-colors"
           >
-            <Mic className="w-5 h-5 text-gray-500" />
+            <Send className="w-5 h-5 text-white" />
           </button>
-
-          {/* Send / Audio Button */}
-          {message.trim() || attachedFile ? (
-            <button
-              type="submit"
-              disabled={disabled}
-              className="flex-shrink-0 w-10 h-10 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 rounded-full flex items-center justify-center transition-colors"
-            >
-              <AudioLines className="w-5 h-5 text-white" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="flex-shrink-0 w-10 h-10 bg-gray-900 rounded-full flex items-center justify-center"
-              disabled={disabled}
-            >
-              <AudioLines className="w-5 h-5 text-white" />
-            </button>
-          )}
         </form>
       </div>
     </div>

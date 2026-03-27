@@ -48,6 +48,16 @@ class DocumentRepository:
             )
         return documents
 
+    def delete_file(self, filename: str) -> None:
+        """Delete from Azure Blob Storage and local cache."""
+        blob_client = self.container_client.get_blob_client(filename)
+        blob_client.delete_blob()
+        logger.info("Deleted from Azure Blob: %s/%s", self.container_name, filename)
+
+        local_path = os.path.join(self.local_cache_dir, filename)
+        if os.path.exists(local_path):
+            os.remove(local_path)
+
     def download_file(self, filename: str) -> str:
         """Download from Azure Blob to local cache and return local path."""
         local_path = os.path.join(self.local_cache_dir, filename)

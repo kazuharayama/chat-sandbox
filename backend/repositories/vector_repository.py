@@ -44,6 +44,21 @@ class VectorRepository:
     def similarity_search_with_score(self, query: str, k: int = 4):
         return self.store.similarity_search_with_score(query, k=k)
 
+    def delete_by_document_id(self, document_id: str) -> None:
+        """Delete embeddings for a specific document."""
+        engine = create_engine(self.connection_str)
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    "DELETE FROM langchain_pg_embedding "
+                    "WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = :name) "
+                    "AND cmetadata->>'document_id' = :doc_id"
+                ),
+                {"name": self.collection_name, "doc_id": document_id},
+            )
+            conn.commit()
+        logger.info("Deleted embeddings for document: %s", document_id)
+
     def clear_collection(self) -> None:
         engine = create_engine(self.connection_str)
         with engine.connect() as conn:

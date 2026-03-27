@@ -30,6 +30,23 @@ async def upload_document(
         )
 
 
+@router.delete("/documents/{document_id}")
+async def delete_document(
+    document_id: str,
+    document_service: DocumentService = Depends(get_document_service),
+):
+    try:
+        document_service.delete_document(document_id)
+        return {"status": "削除完了", "document_id": document_id}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"ドキュメント削除中にエラーが発生しました: {str(e)}",
+        )
+
+
 @router.get("/documents")
 async def list_documents(
     document_service: DocumentService = Depends(get_document_service),

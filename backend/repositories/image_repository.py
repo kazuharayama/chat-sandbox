@@ -57,6 +57,22 @@ class ImageRepository:
         logger.info("Image indexed: %s", document_id)
         return document_id
 
+    def delete_by_document_id(self, document_id: str) -> None:
+        """Delete image embedding by document ID."""
+        from sqlalchemy import create_engine, text
+        engine = create_engine(self.connection_str)
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    "DELETE FROM langchain_pg_embedding "
+                    "WHERE collection_id = (SELECT uuid FROM langchain_pg_collection WHERE name = :name) "
+                    "AND cmetadata->>'document_id' = :doc_id"
+                ),
+                {"name": self.collection_name, "doc_id": document_id},
+            )
+            conn.commit()
+        logger.info("Deleted image embedding for document: %s", document_id)
+
     def search_by_text(self, query: str, k: int = 3) -> List[Document]:
         """Search images using text query (CLIP text encoder)."""
         return self.store.similarity_search(query, k=k)

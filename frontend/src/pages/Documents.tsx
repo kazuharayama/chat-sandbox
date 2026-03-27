@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import type { Document, DocumentUploadRequest } from '../services/api';
-import { FileText, Upload, Trash2, RefreshCw, File } from 'lucide-react';
+import { FileText, Upload, Trash2, RefreshCw, File as FileIcon } from 'lucide-react';
 
 export default function Documents() {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -213,7 +213,7 @@ export default function Documents() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center">
-                      <File className="w-8 h-8 text-blue-500 mr-3" />
+                      <FileIcon className="w-8 h-8 text-blue-500 mr-3" />
                       <div>
                         <h3 className="font-medium text-gray-900 truncate max-w-xs" title={doc.filename}>
                           {doc.filename}
@@ -224,6 +224,15 @@ export default function Documents() {
                       </div>
                     </div>
                     <button
+                      onClick={async () => {
+                        if (!confirm(`${doc.filename} を削除しますか？`)) return;
+                        try {
+                          await apiService.deleteDocument(doc.document_id);
+                          await fetchDocuments();
+                        } catch (err) {
+                          setError('削除中にエラーが発生しました');
+                        }
+                      }}
                       className="text-gray-400 hover:text-red-500 transition-colors"
                       title="削除"
                     >
