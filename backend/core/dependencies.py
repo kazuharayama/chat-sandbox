@@ -50,7 +50,7 @@ def init_dependencies(settings: Settings) -> None:
     _agent_config_repo = AgentConfigRepository(settings.database_url)
 
     # Services
-    _chat_service = ChatService(settings, _vector_repo, _image_repo, _chat_repo)
+    _chat_service = ChatService(settings, _vector_repo, _image_repo, _chat_repo, _agent_config_repo)
     _document_service = DocumentService(_document_repo, _vector_repo, _image_repo)
 
     logger.info("All dependencies initialized")

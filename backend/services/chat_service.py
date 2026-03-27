@@ -6,18 +6,20 @@ from langchain_openai import AzureChatOpenAI
 
 from core.config import Settings
 from models.chat import ChatRequest, ChatResponse
+from repositories.agent_config_repository import AgentConfigRepository
 from repositories.chat_repository import ChatRepository
 from repositories.image_repository import ImageRepository
 from repositories.vector_repository import VectorRepository
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """あなたは親しみやすいAIアシスタントです。{language}で返答してください。
+# Fallback prompts (used if DB has no data)
+DEFAULT_SYSTEM_PROMPT = """あなたは親しみやすいAIアシスタントです。{language}で返答してください。
 返答は会話的で親しみやすい口調にしてください。
 
 {rag_section}"""
 
-RAG_SECTION = """以下の関連ドキュメントの情報も参考にしてください。ドキュメントに関連情報がない場合は無視してください。
+DEFAULT_RAG_SECTION = """以下の関連ドキュメントの情報も参考にしてください。ドキュメントに関連情報がない場合は無視してください。
 
 関連ドキュメント:
 {context}
@@ -25,7 +27,7 @@ RAG_SECTION = """以下の関連ドキュメントの情報も参考にしてく
 関連画像:
 {image_context}"""
 
-MAX_HISTORY_MESSAGES = 20  # 直近の会話数（多すぎるとトークン超過）
+MAX_HISTORY_MESSAGES = 20
 
 
 class ChatService:
@@ -35,10 +37,12 @@ class ChatService:
         vector_repo: Optional[VectorRepository],
         image_repo: Optional[ImageRepository] = None,
         chat_repo: Optional[ChatRepository] = None,
+        agent_config_repo: Optional[AgentConfigRepository] = None,
     ):
         self.vector_repo = vector_repo
         self.image_repo = image_repo
         self.chat_repo = chat_repo
+        self.agent_config_repo = agent_config_repo
         self.llm = AzureChatOpenAI(
             azure_deployment=settings.azure_openai_llm_deployment,
             azure_endpoint=settings.azure_openai_endpoint,
@@ -47,6 +51,21 @@ class ChatService:
             temperature=0.7,
             streaming=True,
         )
+
+    def _get_prompt(self, prompt_key: str, fallback: str) -> str:
+        """Get prompt from DB, fallback to hardcoded default."""
+        if not self.agent_config_repo:
+            return fallback
+        try:
+            agent = self.agent_config_repo.get_agent_by_name("assistant")
+            if not agent:
+                return fallback
+            prompt = self.agent_config_repo.get_active_prompt(agent.id, prompt_key)
+            if prompt:
+                return prompt.content
+        except Exception as e:
+            logger.warning("Failed to load prompt '%s' from DB: %s", prompt_key, e)
+        return fallback
 
     def _ensure_session(self, request: ChatRequest) -> str:
         if request.session_id and self.chat_repo:
@@ -59,11 +78,9 @@ class ChatService:
         return ""
 
     def _get_history(self, session_id: str) -> List[dict]:
-        """Get recent conversation history as LLM messages."""
         if not self.chat_repo or not session_id:
             return []
         messages = self.chat_repo.get_messages(session_id)
-        # Take the most recent N messages (exclude the current user message we just saved)
         recent = messages[-(MAX_HISTORY_MESSAGES + 1):-1] if len(messages) > 1 else []
         return [
             {"role": "user" if m.role == "user" else "assistant", "content": m.content}
@@ -71,29 +88,26 @@ class ChatService:
         ]
 
     def _build_messages(self, request: ChatRequest, session_id: str = "") -> tuple:
-        """Build LLM messages with history and return (messages, sources)."""
         sources = []
         rag_section = ""
 
         if request.use_rag and (self.vector_repo or self.image_repo):
             context, sources, image_context = self._retrieve(request.message)
-            rag_section = RAG_SECTION.format(
+            rag_template = self._get_prompt("rag_section", DEFAULT_RAG_SECTION)
+            rag_section = rag_template.format(
                 context=context or "なし",
                 image_context=image_context,
             )
 
-        system_content = SYSTEM_PROMPT.format(
+        system_template = self._get_prompt("system_prompt", DEFAULT_SYSTEM_PROMPT)
+        system_content = system_template.format(
             language=request.language,
             rag_section=rag_section,
         )
 
         messages = [{"role": "system", "content": system_content}]
-
-        # Add conversation history
         history = self._get_history(session_id)
         messages.extend(history)
-
-        # Add current user message
         messages.append({"role": "user", "content": request.message})
 
         return messages, sources

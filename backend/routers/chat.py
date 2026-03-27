@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
+from core.auth import require_group_member
 from core.dependencies import get_chat_service
 from models.chat import ChatRequest, ChatResponse
 from services.chat_service import ChatService
@@ -11,6 +12,7 @@ router = APIRouter()
 @router.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(
     request: ChatRequest,
+    user: dict = Depends(require_group_member),
     chat_service: ChatService = Depends(get_chat_service),
 ):
     try:
@@ -25,6 +27,7 @@ async def chat_endpoint(
 @router.post("/chat/stream")
 async def chat_stream_endpoint(
     request: ChatRequest,
+    user: dict = Depends(require_group_member),
     chat_service: ChatService = Depends(get_chat_service),
 ):
     try:

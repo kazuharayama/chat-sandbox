@@ -30,6 +30,10 @@ Pillow==10.1.0
 # Azure Blob Storage
 azure-storage-blob==12.19.0
 
+# Authentication
+PyJWT[crypto]==2.8.0
+requests==2.31.0
+
 # マルチモーダル (CLIP)
 sentence-transformers==3.0.1
 torch==2.2.2

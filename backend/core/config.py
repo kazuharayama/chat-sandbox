@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     azure_storage_connection_string: str = ""
     azure_storage_container_name: str = "documents"
 
+    # Entra ID
+    azure_tenant_id: str = ""
+    azure_client_id: str = ""
+    azure_client_secret: str = ""
+    azure_allowed_group_id: str = ""
+
     # Langfuse
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""
