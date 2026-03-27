@@ -68,7 +68,7 @@ class DocumentService:
 
         filename = f"{document_id}{extension}"
 
-        file_path = await self.document_repo.save_file(content, filename)
+        file_path = await self.document_repo.save_file(content, filename, original_filename)
         logger.info("Document uploaded: %s (%s)", original_filename, document_id)
 
         return DocumentUploadResponse(
@@ -118,10 +118,10 @@ class DocumentService:
             raise ValueError(f"ドキュメントが見つかりません: {document_id}")
 
         # Delete from blob storage
-        self.document_repo.delete_file(target.filename)
+        self.document_repo.delete_file(target.blob_name)
 
         # Delete from vector store
-        extension = "." + target.filename.rsplit(".", 1)[-1].lower()
+        extension = "." + target.blob_name.rsplit(".", 1)[-1].lower()
         if extension in IMAGE_EXTENSIONS:
             if self.image_repo:
                 try:

@@ -2,6 +2,7 @@ import logging
 from typing import Optional
 
 from core.config import Settings
+from repositories.agent_config_repository import AgentConfigRepository
 from repositories.chat_repository import ChatRepository
 from repositories.document_repository import DocumentRepository
 from repositories.image_repository import ImageRepository
@@ -15,13 +16,14 @@ _vector_repo: Optional[VectorRepository] = None
 _image_repo: Optional[ImageRepository] = None
 _document_repo: Optional[DocumentRepository] = None
 _chat_repo: Optional[ChatRepository] = None
+_agent_config_repo: Optional[AgentConfigRepository] = None
 _chat_service: Optional[ChatService] = None
 _document_service: Optional[DocumentService] = None
 
 
 def init_dependencies(settings: Settings) -> None:
     """Initialize all dependencies at startup."""
-    global _vector_repo, _image_repo, _document_repo, _chat_repo, _chat_service, _document_service
+    global _vector_repo, _image_repo, _document_repo, _chat_repo, _agent_config_repo, _chat_service, _document_service
 
     # Repositories
     try:
@@ -45,6 +47,7 @@ def init_dependencies(settings: Settings) -> None:
     )
 
     _chat_repo = ChatRepository(settings.database_url)
+    _agent_config_repo = AgentConfigRepository(settings.database_url)
 
     # Services
     _chat_service = ChatService(settings, _vector_repo, _image_repo, _chat_repo)
@@ -63,3 +66,7 @@ def get_document_service() -> DocumentService:
 
 def get_chat_repository() -> ChatRepository:
     return _chat_repo
+
+
+def get_agent_config_repository() -> AgentConfigRepository:
+    return _agent_config_repo

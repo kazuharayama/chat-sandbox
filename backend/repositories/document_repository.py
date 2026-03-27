@@ -19,11 +19,13 @@ class DocumentRepository:
         self.container_client = self.blob_service_client.get_container_client(container_name)
         logger.info("DocumentRepository initialized (container=%s)", container_name)
 
-    async def save_file(self, content: bytes, filename: str) -> str:
+    async def save_file(self, content: bytes, filename: str, original_filename: str = "") -> str:
         """Upload to Azure Blob Storage and cache locally for processing."""
-        # Azure Blob にアップロード
         blob_client = self.container_client.get_blob_client(filename)
-        blob_client.upload_blob(content, overwrite=True)
+        metadata = {}
+        if original_filename:
+            metadata["original_filename"] = original_filename
+        blob_client.upload_blob(content, overwrite=True, metadata=metadata)
         logger.info("Uploaded to Azure Blob: %s/%s", self.container_name, filename)
 
         # ローカルキャッシュ（ベクトル化処理用）
@@ -36,12 +38,14 @@ class DocumentRepository:
     def list_documents(self) -> List[DocumentInfo]:
         """List documents from Azure Blob Storage."""
         documents = []
-        blobs = self.container_client.list_blobs()
+        blobs = self.container_client.list_blobs(include=["metadata"])
         for blob in blobs:
+            original = (blob.metadata or {}).get("original_filename", blob.name)
             documents.append(
                 DocumentInfo(
                     document_id=os.path.splitext(blob.name)[0],
-                    filename=blob.name,
+                    filename=original,
+                    blob_name=blob.name,
                     size=blob.size,
                     last_modified=blob.last_modified.timestamp(),
                 )

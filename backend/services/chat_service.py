@@ -1,9 +1,7 @@
 import json
 import logging
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator, List, Optional
 
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import AzureChatOpenAI
 
 from core.config import Settings
@@ -14,10 +12,12 @@ from repositories.vector_repository import VectorRepository
 
 logger = logging.getLogger(__name__)
 
-RAG_TEMPLATE = """ユーザーからの次のメッセージに対して、{language}で適切に返答してください: {message}
-
-以下の関連ドキュメントの情報も参考にしてください。ドキュメントに関連情報がない場合は無視してください。
+SYSTEM_PROMPT = """あなたは親しみやすいAIアシスタントです。{language}で返答してください。
 返答は会話的で親しみやすい口調にしてください。
+
+{rag_section}"""
+
+RAG_SECTION = """以下の関連ドキュメントの情報も参考にしてください。ドキュメントに関連情報がない場合は無視してください。
 
 関連ドキュメント:
 {context}
@@ -25,26 +25,7 @@ RAG_TEMPLATE = """ユーザーからの次のメッセージに対して、{lang
 関連画像:
 {image_context}"""
 
-RAG_ATTACHMENT_TEMPLATE = """ユーザーが画像を添付して次のメッセージを送信しました: {message}
-
-画像の内容については分かりませんが、画像が添付されていることを考慮して、{language}で適切に返答してください。
-以下の関連ドキュメントの情報も参考にしてください。ドキュメントに関連情報がない場合は無視してください。
-返答は会話的で親しみやすい口調にしてください。
-
-関連ドキュメント:
-{context}
-
-関連画像:
-{image_context}"""
-
-PLAIN_TEMPLATE = """ユーザーからの次のメッセージに対して、{language}で適切に返答してください: {message}
-
-返答は会話的で親しみやすい口調にしてください。"""
-
-PLAIN_ATTACHMENT_TEMPLATE = """ユーザーが画像を添付して次のメッセージを送信しました: {message}
-
-画像の内容については分かりませんが、画像が添付されていることを考慮して、{language}で適切に返答してください。
-返答は会話的で親しみやすい口調にしてください。"""
+MAX_HISTORY_MESSAGES = 20  # 直近の会話数（多すぎるとトークン超過）
 
 
 class ChatService:
@@ -68,7 +49,6 @@ class ChatService:
         )
 
     def _ensure_session(self, request: ChatRequest) -> str:
-        """Get or create a session, return session_id."""
         if request.session_id and self.chat_repo:
             session = self.chat_repo.get_session(request.session_id)
             if session:
@@ -78,46 +58,75 @@ class ChatService:
             return session.id
         return ""
 
+    def _get_history(self, session_id: str) -> List[dict]:
+        """Get recent conversation history as LLM messages."""
+        if not self.chat_repo or not session_id:
+            return []
+        messages = self.chat_repo.get_messages(session_id)
+        # Take the most recent N messages (exclude the current user message we just saved)
+        recent = messages[-(MAX_HISTORY_MESSAGES + 1):-1] if len(messages) > 1 else []
+        return [
+            {"role": "user" if m.role == "user" else "assistant", "content": m.content}
+            for m in recent
+        ]
+
+    def _build_messages(self, request: ChatRequest, session_id: str = "") -> tuple:
+        """Build LLM messages with history and return (messages, sources)."""
+        sources = []
+        rag_section = ""
+
+        if request.use_rag and (self.vector_repo or self.image_repo):
+            context, sources, image_context = self._retrieve(request.message)
+            rag_section = RAG_SECTION.format(
+                context=context or "なし",
+                image_context=image_context,
+            )
+
+        system_content = SYSTEM_PROMPT.format(
+            language=request.language,
+            rag_section=rag_section,
+        )
+
+        messages = [{"role": "system", "content": system_content}]
+
+        # Add conversation history
+        history = self._get_history(session_id)
+        messages.extend(history)
+
+        # Add current user message
+        messages.append({"role": "user", "content": request.message})
+
+        return messages, sources
+
     def chat(self, request: ChatRequest) -> ChatResponse:
         session_id = self._ensure_session(request)
 
-        # Save user message
         if self.chat_repo and session_id:
             self.chat_repo.add_message(session_id, "user", request.message)
 
-        if request.use_rag and (self.vector_repo or self.image_repo):
-            result = self._chat_with_rag(request)
-        else:
-            result = self._chat_plain(request)
+        messages, sources = self._build_messages(request, session_id)
+        response = self.llm.invoke(messages).content
 
-        # Save bot message
         if self.chat_repo and session_id:
-            self.chat_repo.add_message(session_id, "bot", result.response, result.sources)
-            # Auto-title on first exchange
+            self.chat_repo.add_message(session_id, "bot", response, sources)
             if not request.session_id:
-                title = request.message[:50]
-                self.chat_repo.update_session_title(session_id, title)
+                self.chat_repo.update_session_title(session_id, request.message[:50])
 
-        result.session_id = session_id
-        return result
+        return ChatResponse(response=response, sources=sources, session_id=session_id)
 
     async def chat_stream(self, request: ChatRequest) -> AsyncGenerator[str, None]:
-        """Stream chat response as SSE events."""
         session_id = self._ensure_session(request)
 
-        # Save user message
         if self.chat_repo and session_id:
             self.chat_repo.add_message(session_id, "user", request.message)
 
-        messages, sources = self._build_messages(request)
+        messages, sources = self._build_messages(request, session_id)
 
-        # Send session_id and sources first
         yield f"data: {json.dumps({'type': 'session', 'session_id': session_id}, ensure_ascii=False)}\n\n"
 
         if sources:
             yield f"data: {json.dumps({'type': 'sources', 'sources': sources}, ensure_ascii=False)}\n\n"
 
-        # Stream LLM response
         full_response = ""
         async for chunk in self.llm.astream(messages):
             content = chunk.content
@@ -125,34 +134,14 @@ class ChatService:
                 full_response += content
                 yield f"data: {json.dumps({'type': 'token', 'content': content}, ensure_ascii=False)}\n\n"
 
-        # Save bot message
         if self.chat_repo and session_id:
             self.chat_repo.add_message(session_id, "bot", full_response, sources)
             if not request.session_id:
-                title = request.message[:50]
-                self.chat_repo.update_session_title(session_id, title)
+                self.chat_repo.update_session_title(session_id, request.message[:50])
 
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
-    def _build_messages(self, request: ChatRequest) -> tuple:
-        """Build LLM messages and return (messages, sources)."""
-        if request.use_rag and (self.vector_repo or self.image_repo):
-            context, sources, image_context = self._retrieve(request.message)
-            template = RAG_ATTACHMENT_TEMPLATE if request.hasAttachment else RAG_TEMPLATE
-            content = template.format(
-                message=request.message,
-                language=request.language,
-                context=context or "なし",
-                image_context=image_context,
-            )
-            return [{"role": "system", "content": content}], sources
-        else:
-            template = PLAIN_ATTACHMENT_TEMPLATE if request.hasAttachment else PLAIN_TEMPLATE
-            content = template.format(message=request.message, language=request.language)
-            return [{"role": "system", "content": content}], []
-
     def _retrieve(self, query: str) -> tuple:
-        """Retrieve context from vector and image stores."""
         context = ""
         sources = []
         if self.vector_repo:
@@ -173,13 +162,3 @@ class ChatService:
                 logger.warning("Image search failed: %s", e)
 
         return context, sources, image_context
-
-    def _chat_with_rag(self, request: ChatRequest) -> ChatResponse:
-        messages, sources = self._build_messages(request)
-        response = self.llm.invoke(messages).content
-        return ChatResponse(response=response, sources=sources)
-
-    def _chat_plain(self, request: ChatRequest) -> ChatResponse:
-        messages, sources = self._build_messages(request)
-        response = self.llm.invoke(messages).content
-        return ChatResponse(response=response, sources=sources)

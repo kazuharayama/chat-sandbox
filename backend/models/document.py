@@ -10,5 +10,6 @@ class DocumentUploadResponse(BaseModel):
 class DocumentInfo(BaseModel):
     document_id: str
     filename: str
+    blob_name: str
     size: int
     last_modified: float

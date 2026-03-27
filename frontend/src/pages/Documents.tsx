@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { apiService } from '../services/api';
 import type { Document, DocumentUploadRequest } from '../services/api';
-import { FileText, Upload, Trash2, RefreshCw, File as FileIcon } from 'lucide-react';
+import { FileText, Upload, Trash2, RefreshCw, File as FileIcon, LayoutGrid, List } from 'lucide-react';
 
 export default function Documents() {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -10,6 +10,7 @@ export default function Documents() {
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [documentType, setDocumentType] = useState<string>('text');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // ドキュメント一覧を取得
   const fetchDocuments = async () => {
@@ -176,14 +177,32 @@ export default function Documents() {
                 アップロードされたドキュメントの一覧
               </p>
             </div>
-            <button
-              onClick={fetchDocuments}
-              disabled={loading}
-              className="flex items-center gap-1 px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              更新
-            </button>
+            <div className="flex items-center gap-2">
+              <div className="flex bg-gray-100 rounded-lg p-0.5">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
+                  title="グリッド表示"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
+                  title="リスト表示"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
+              <button
+                onClick={fetchDocuments}
+                disabled={loading}
+                className="flex items-center gap-1 px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                更新
+              </button>
+            </div>
           </div>
           {error && (
             <div className="mt-2 text-sm text-red-600 bg-red-50 px-3 py-1 rounded-lg">
@@ -205,24 +224,61 @@ export default function Documents() {
               <p>ドキュメントがありません</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {documents.map((doc) => (
-                <div
-                  key={doc.document_id}
-                  className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center">
-                      <FileIcon className="w-8 h-8 text-blue-500 mr-3" />
-                      <div>
-                        <h3 className="font-medium text-gray-900 truncate max-w-xs" title={doc.filename}>
-                          {doc.filename}
-                        </h3>
-                        <p className="text-xs text-gray-500">
-                          {formatFileSize(doc.size)} • {formatDate(doc.last_modified)}
-                        </p>
+            viewMode === 'grid' ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {documents.map((doc) => (
+                  <div
+                    key={doc.document_id}
+                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center">
+                        <FileIcon className="w-8 h-8 text-blue-500 mr-3" />
+                        <div>
+                          <h3 className="font-medium text-gray-900 truncate max-w-xs" title={doc.filename}>
+                            {doc.filename}
+                          </h3>
+                          <p className="text-xs text-gray-500">
+                            {formatFileSize(doc.size)} • {formatDate(doc.last_modified)}
+                          </p>
+                        </div>
                       </div>
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`${doc.filename} を削除しますか？`)) return;
+                          try {
+                            await apiService.deleteDocument(doc.document_id);
+                            await fetchDocuments();
+                          } catch (err) {
+                            setError('削除中にエラーが発生しました');
+                          }
+                        }}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
+                        title="削除"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="border border-gray-200 rounded-lg divide-y divide-gray-200">
+                {documents.map((doc) => (
+                  <div
+                    key={doc.document_id}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                  >
+                    <FileIcon className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                    <span className="flex-1 text-sm font-medium text-gray-900 truncate" title={doc.filename}>
+                      {doc.filename}
+                    </span>
+                    <span className="text-xs text-gray-400 w-20 text-right flex-shrink-0">
+                      {formatFileSize(doc.size)}
+                    </span>
+                    <span className="text-xs text-gray-400 w-36 text-right flex-shrink-0">
+                      {formatDate(doc.last_modified)}
+                    </span>
                     <button
                       onClick={async () => {
                         if (!confirm(`${doc.filename} を削除しますか？`)) return;
@@ -233,15 +289,15 @@ export default function Documents() {
                           setError('削除中にエラーが発生しました');
                         }
                       }}
-                      className="text-gray-400 hover:text-red-500 transition-colors"
+                      className="text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
                       title="削除"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )
           )}
         </div>
       </div>
