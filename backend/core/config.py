@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     db_password: str = "chat_pass"
     db_port: int = 5432
 
+    # Azure Blob Storage
+    azure_storage_connection_string: str = ""
+    azure_storage_container_name: str = "documents"
+
     # Langfuse
     langfuse_public_key: str = ""
     langfuse_secret_key: str = ""

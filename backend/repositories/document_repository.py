@@ -2,36 +2,60 @@ import logging
 import os
 from typing import List
 
+from azure.storage.blob import BlobServiceClient
+
 from models.document import DocumentInfo
 
 logger = logging.getLogger(__name__)
 
 
 class DocumentRepository:
-    def __init__(self, docs_dir: str):
-        self.docs_dir = docs_dir
-        os.makedirs(self.docs_dir, exist_ok=True)
+    def __init__(self, connection_string: str, container_name: str, local_cache_dir: str):
+        self.container_name = container_name
+        self.local_cache_dir = local_cache_dir
+        os.makedirs(self.local_cache_dir, exist_ok=True)
+
+        self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        self.container_client = self.blob_service_client.get_container_client(container_name)
+        logger.info("DocumentRepository initialized (container=%s)", container_name)
 
     async def save_file(self, content: bytes, filename: str) -> str:
-        file_path = os.path.join(self.docs_dir, filename)
-        with open(file_path, "wb") as f:
+        """Upload to Azure Blob Storage and cache locally for processing."""
+        # Azure Blob にアップロード
+        blob_client = self.container_client.get_blob_client(filename)
+        blob_client.upload_blob(content, overwrite=True)
+        logger.info("Uploaded to Azure Blob: %s/%s", self.container_name, filename)
+
+        # ローカルキャッシュ（ベクトル化処理用）
+        local_path = os.path.join(self.local_cache_dir, filename)
+        with open(local_path, "wb") as f:
             f.write(content)
-        logger.info("Saved file: %s", file_path)
-        return file_path
+
+        return local_path
 
     def list_documents(self) -> List[DocumentInfo]:
+        """List documents from Azure Blob Storage."""
         documents = []
-        if not os.path.exists(self.docs_dir):
-            return documents
-        for filename in os.listdir(self.docs_dir):
-            file_path = os.path.join(self.docs_dir, filename)
-            if os.path.isfile(file_path):
-                documents.append(
-                    DocumentInfo(
-                        document_id=os.path.splitext(filename)[0],
-                        filename=filename,
-                        size=os.path.getsize(file_path),
-                        last_modified=os.path.getmtime(file_path),
-                    )
+        blobs = self.container_client.list_blobs()
+        for blob in blobs:
+            documents.append(
+                DocumentInfo(
+                    document_id=os.path.splitext(blob.name)[0],
+                    filename=blob.name,
+                    size=blob.size,
+                    last_modified=blob.last_modified.timestamp(),
                 )
+            )
         return documents
+
+    def download_file(self, filename: str) -> str:
+        """Download from Azure Blob to local cache and return local path."""
+        local_path = os.path.join(self.local_cache_dir, filename)
+        if os.path.exists(local_path):
+            return local_path
+
+        blob_client = self.container_client.get_blob_client(filename)
+        with open(local_path, "wb") as f:
+            f.write(blob_client.download_blob().readall())
+        logger.info("Downloaded from Azure Blob: %s", filename)
+        return local_path

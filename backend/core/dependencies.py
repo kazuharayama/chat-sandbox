@@ -1,9 +1,9 @@
 import logging
-from functools import lru_cache
 from typing import Optional
 
-from core.config import Settings, get_settings
+from core.config import Settings
 from repositories.document_repository import DocumentRepository
+from repositories.image_repository import ImageRepository
 from repositories.vector_repository import VectorRepository
 from services.chat_service import ChatService
 from services.document_service import DocumentService
@@ -11,6 +11,7 @@ from services.document_service import DocumentService
 logger = logging.getLogger(__name__)
 
 _vector_repo: Optional[VectorRepository] = None
+_image_repo: Optional[ImageRepository] = None
 _document_repo: Optional[DocumentRepository] = None
 _chat_service: Optional[ChatService] = None
 _document_service: Optional[DocumentService] = None
@@ -18,7 +19,7 @@ _document_service: Optional[DocumentService] = None
 
 def init_dependencies(settings: Settings) -> None:
     """Initialize all dependencies at startup."""
-    global _vector_repo, _document_repo, _chat_service, _document_service
+    global _vector_repo, _image_repo, _document_repo, _chat_service, _document_service
 
     # Repositories
     try:
@@ -28,11 +29,22 @@ def init_dependencies(settings: Settings) -> None:
         logger.warning("Failed to initialize VectorRepository: %s", e)
         _vector_repo = None
 
-    _document_repo = DocumentRepository(settings.docs_dir)
+    try:
+        _image_repo = ImageRepository(settings)
+        logger.info("ImageRepository initialized")
+    except Exception as e:
+        logger.warning("Failed to initialize ImageRepository: %s", e)
+        _image_repo = None
+
+    _document_repo = DocumentRepository(
+        connection_string=settings.azure_storage_connection_string,
+        container_name=settings.azure_storage_container_name,
+        local_cache_dir=settings.docs_dir,
+    )
 
     # Services
-    _chat_service = ChatService(settings, _vector_repo)
-    _document_service = DocumentService(_document_repo, _vector_repo)
+    _chat_service = ChatService(settings, _vector_repo, _image_repo)
+    _document_service = DocumentService(_document_repo, _vector_repo, _image_repo)
 
     logger.info("All dependencies initialized")
 

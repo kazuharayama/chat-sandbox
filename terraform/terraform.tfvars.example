@@ -1,0 +1,3 @@
+subscription_id      = "your-subscription-id"
+storage_account_name = "chatsandboxdocs" # グローバルで一意にする
+location             = "japaneast"
