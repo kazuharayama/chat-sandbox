@@ -181,7 +181,7 @@ class AgentConfigRepository:
             row = conn.execute(
                 text("""
                     INSERT INTO llm_models (name, provider, deployment_name, temperature, max_tokens, is_default, config)
-                    VALUES (:name, :provider, :deployment_name, :temperature, :max_tokens, :is_default, :config::jsonb)
+                    VALUES (:name, :provider, :deployment_name, :temperature, :max_tokens, :is_default, CAST(:config AS jsonb))
                     RETURNING *
                 """),
                 {
@@ -212,7 +212,7 @@ class AgentConfigRepository:
                 updates.append("is_default = :is_default")
                 params["is_default"] = is_default
             if config is not None:
-                updates.append("config = :config::jsonb")
+                updates.append("config = CAST(:config AS jsonb)")
                 params["config"] = json.dumps(config)
             updates.append("updated_at = now()")
 
@@ -229,7 +229,7 @@ class AgentConfigRepository:
             updates = []
             params = {"id": source_id}
             if config is not None:
-                updates.append("config = :config::jsonb")
+                updates.append("config = CAST(:config AS jsonb)")
                 params["config"] = json.dumps(config)
             if is_enabled is not None:
                 updates.append("is_enabled = :is_enabled")
