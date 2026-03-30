@@ -151,7 +151,21 @@ class ChatService:
         messages = [{"role": "system", "content": system_content}]
         history = self._get_history(session_id)
         messages.extend(history)
-        messages.append({"role": "user", "content": request.message})
+
+        # Build user message (with optional Vision image)
+        if request.image_base64 and request.image_mime_type:
+            user_content = [
+                {"type": "text", "text": request.message},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{request.image_mime_type};base64,{request.image_base64}",
+                    },
+                },
+            ]
+            messages.append({"role": "user", "content": user_content})
+        else:
+            messages.append({"role": "user", "content": request.message})
 
         return messages, sources
 

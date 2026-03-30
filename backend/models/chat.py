@@ -10,6 +10,8 @@ class ChatRequest(BaseModel):
     language: str = "日本語"
     hasAttachment: bool = False
     use_rag: bool = True
+    image_base64: Optional[str] = None  # base64 encoded image for Vision
+    image_mime_type: Optional[str] = None  # e.g. "image/png"
 
 
 class ChatResponse(BaseModel):

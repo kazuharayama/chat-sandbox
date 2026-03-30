@@ -4,6 +4,8 @@ interface ChatRequest {
   language?: string;
   hasAttachment?: boolean;
   use_rag?: boolean;
+  image_base64?: string;
+  image_mime_type?: string;
 }
 
 interface ChatResponse {
@@ -76,6 +78,8 @@ class ApiService {
         language: request.language || '日本語',
         hasAttachment: request.hasAttachment || false,
         use_rag: request.use_rag !== undefined ? request.use_rag : true,
+        image_base64: request.image_base64 || null,
+        image_mime_type: request.image_mime_type || null,
       }),
     });
 

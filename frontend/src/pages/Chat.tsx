@@ -23,6 +23,23 @@ function getDocumentType(file: File): string {
   return map[ext] || 'text';
 }
 
+function isImageFile(file: File): boolean {
+  return file.type.startsWith('image/');
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove data:...;base64, prefix
+      resolve(result.split(',')[1]);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -90,11 +107,22 @@ export default function Chat() {
       setError(null);
 
       try {
-        if (file) {
+        // Upload non-image files for RAG vectorization
+        if (file && !isImageFile(file)) {
           await apiService.uploadDocument({
             file,
             document_type: getDocumentType(file),
           });
+        }
+
+        // Encode image for Vision (also upload for CLIP vectorization)
+        let imageBase64: string | undefined;
+        let imageMimeType: string | undefined;
+        if (file && isImageFile(file)) {
+          imageBase64 = await fileToBase64(file);
+          imageMimeType = file.type;
+          // Also upload for CLIP vectorization in background
+          apiService.uploadDocument({ file, document_type: 'image' }).catch(console.error);
         }
 
         // Add empty bot message for streaming
@@ -110,6 +138,8 @@ export default function Chat() {
             language: '日本語',
             hasAttachment: !!file,
             use_rag: true,
+            image_base64: imageBase64,
+            image_mime_type: imageMimeType,
           },
           {
             onToken: (token) => {
