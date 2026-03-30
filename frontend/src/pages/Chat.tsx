@@ -3,7 +3,7 @@ import { apiService } from '../services/api';
 import type { Session } from '../services/api';
 import ChatWindow from '../components/ChatWindow';
 import MessageInput from '../components/MessageInput';
-import { MessageSquare, Plus, Trash2 } from 'lucide-react';
+import { MessageSquare, Plus, Trash2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 export interface Message {
   id: string;
@@ -29,6 +29,7 @@ export default function Chat() {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Load sessions on mount
   useEffect(() => {
@@ -149,14 +150,21 @@ export default function Chat() {
   return (
     <div className="flex h-full bg-white">
       {/* Sidebar */}
-      <div className="w-64 bg-gray-50 border-r border-gray-200 flex flex-col">
-        <div className="p-3">
+      <div className={`${sidebarOpen ? 'w-64' : 'w-0'} bg-gray-50 border-r border-gray-200 flex flex-col overflow-hidden transition-all duration-200`}>
+        <div className="p-3 flex items-center gap-2">
           <button
             onClick={handleNewChat}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex-1 flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <Plus className="w-4 h-4" />
             新しいチャット
+          </button>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="p-2.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+            title="サイドバーを閉じる"
+          >
+            <PanelLeftClose className="w-5 h-5" />
           </button>
         </div>
 
@@ -189,6 +197,16 @@ export default function Chat() {
 
       {/* Main */}
       <div className="flex-1 flex flex-col">
+        {/* Sidebar open button (shown when closed) */}
+        {!sidebarOpen && (
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="absolute top-20 left-4 z-10 p-3 text-gray-400 hover:text-gray-600 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 transition-colors"
+            title="サイドバーを開く"
+          >
+            <PanelLeftOpen className="w-5 h-5" />
+          </button>
+        )}
         {error && (
           <div className="px-4 py-2 bg-red-50 border-b border-red-100">
             <p className="text-sm text-red-600 text-center">{error}</p>
