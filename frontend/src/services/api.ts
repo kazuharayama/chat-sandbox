@@ -232,6 +232,59 @@ class ApiService {
     return await response.json();
   }
 
+  // Context Lab
+  async testRetrieval(params: TestRetrievalRequest): Promise<TestRetrievalResponse> {
+    const response = await fetch(`${this.baseUrl}/admin/test-retrieval`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  }
+
+  async contextPreview(params: ContextPreviewRequest): Promise<ContextPreviewResponse> {
+    const response = await fetch(`${this.baseUrl}/admin/context-preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  }
+
+  async testChatStream(params: TestChatRequest, callbacks: { onToken: (t: string) => void; onDone: () => void; onError: (e: Error) => void }): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/admin/test-chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('No response body');
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = JSON.parse(line.slice(6));
+          if (data.type === 'token') callbacks.onToken(data.content);
+          else if (data.type === 'done') callbacks.onDone();
+        }
+      }
+    } catch (error) {
+      callbacks.onError(error instanceof Error ? error : new Error('Stream error'));
+    }
+  }
+
   // Admin - Cache
   async clearCache(): Promise<void> {
     const response = await fetch(`${this.baseUrl}/admin/cache/clear`, { method: 'POST' });
@@ -342,6 +395,49 @@ interface KnowledgeSourceUpdate {
   is_enabled?: boolean;
 }
 
+// Context Lab types
+interface TestRetrievalRequest {
+  query: string;
+  similarity_k?: number;
+  threshold?: number;
+  collection_name?: string;
+}
+
+interface ChunkResult {
+  content: string;
+  score: number;
+  metadata: Record<string, any>;
+}
+
+interface TestRetrievalResponse {
+  chunks: ChunkResult[];
+  total: number;
+  query: string;
+}
+
+interface ContextPreviewRequest {
+  query: string;
+  similarity_k?: number;
+  threshold?: number;
+  language?: string;
+  system_prompt_override?: string;
+}
+
+interface ContextPreviewResponse {
+  messages: { role: string; content: string }[];
+  token_estimate: number;
+}
+
+interface TestChatRequest {
+  query: string;
+  similarity_k?: number;
+  threshold?: number;
+  temperature?: number;
+  max_tokens?: number;
+  language?: string;
+  system_prompt_override?: string;
+}
+
 export const apiService = new ApiService();
 export type {
   ChatRequest,
@@ -360,4 +456,10 @@ export type {
   Prompt,
   KnowledgeSource,
   KnowledgeSourceUpdate,
+  TestRetrievalRequest,
+  TestRetrievalResponse,
+  ChunkResult,
+  ContextPreviewRequest,
+  ContextPreviewResponse,
+  TestChatRequest,
 };

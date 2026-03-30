@@ -2,9 +2,10 @@ import { useState } from 'react'
 import Chat from './pages/Chat'
 import Documents from './pages/Documents'
 import Admin from './pages/Admin'
-import { MessageSquare, FileText, Settings, Activity } from 'lucide-react'
+import ContextLab from './pages/ContextLab'
+import { MessageSquare, FileText, Settings, Activity, FlaskConical } from 'lucide-react'
 
-type Page = 'chat' | 'documents' | 'admin'
+type Page = 'chat' | 'documents' | 'admin' | 'context-lab'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>('chat')
@@ -12,6 +13,7 @@ function App() {
   const tabs: { page: Page; icon: React.ReactNode; label: string }[] = [
     { page: 'chat', icon: <MessageSquare className="w-4 h-4" />, label: 'チャット' },
     { page: 'documents', icon: <FileText className="w-4 h-4" />, label: 'ドキュメント' },
+    { page: 'context-lab', icon: <FlaskConical className="w-4 h-4" />, label: 'Context Lab' },
     { page: 'admin', icon: <Settings className="w-4 h-4" />, label: '管理' },
   ]
 
@@ -52,6 +54,7 @@ function App() {
       <main className="flex-1 overflow-hidden flex flex-col">
         {currentPage === 'chat' && <Chat />}
         {currentPage === 'documents' && <Documents />}
+        {currentPage === 'context-lab' && <ContextLab />}
         {currentPage === 'admin' && <Admin />}
       </main>
     </div>

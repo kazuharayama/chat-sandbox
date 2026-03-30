@@ -8,6 +8,7 @@ from repositories.document_repository import DocumentRepository
 from repositories.image_repository import ImageRepository
 from repositories.vector_repository import VectorRepository
 from services.chat_service import ChatService
+from services.context_lab_service import ContextLabService
 from services.document_service import DocumentService
 
 logger = logging.getLogger(__name__)
@@ -18,12 +19,13 @@ _document_repo: Optional[DocumentRepository] = None
 _chat_repo: Optional[ChatRepository] = None
 _agent_config_repo: Optional[AgentConfigRepository] = None
 _chat_service: Optional[ChatService] = None
+_context_lab_service: Optional[ContextLabService] = None
 _document_service: Optional[DocumentService] = None
 
 
 def init_dependencies(settings: Settings) -> None:
     """Initialize all dependencies at startup."""
-    global _vector_repo, _image_repo, _document_repo, _chat_repo, _agent_config_repo, _chat_service, _document_service
+    global _vector_repo, _image_repo, _document_repo, _chat_repo, _agent_config_repo, _chat_service, _context_lab_service, _document_service
 
     # Repositories
     try:
@@ -51,6 +53,7 @@ def init_dependencies(settings: Settings) -> None:
 
     # Services
     _chat_service = ChatService(settings, _vector_repo, _image_repo, _chat_repo, _agent_config_repo)
+    _context_lab_service = ContextLabService(settings, _vector_repo, _image_repo, _agent_config_repo)
     _document_service = DocumentService(_document_repo, _vector_repo, _image_repo)
 
     logger.info("All dependencies initialized")
@@ -66,6 +69,10 @@ def get_document_service() -> DocumentService:
 
 def get_chat_repository() -> ChatRepository:
     return _chat_repo
+
+
+def get_context_lab_service() -> ContextLabService:
+    return _context_lab_service
 
 
 def get_agent_config_repository() -> AgentConfigRepository:
