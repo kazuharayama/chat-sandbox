@@ -1,0 +1,118 @@
+# 要件定義書: chat-sandbox 全体ロードマップ
+
+## 1. ドキュメント概要
+
+| 項目 | 内容 |
+|------|------|
+| プロジェクト名 | chat-sandbox |
+| 対象読者 | 開発者 |
+| 作成日 | 2026-03-30 |
+| 関連ドキュメント | [PRD](../PRD.md) |
+
+## 2. 現状の実装状況
+
+| ステップ | 状態 | 備考 |
+|----------|------|------|
+| Step 1: RAGの基本 | 完了 | レイヤードアーキテクチャ、Azure OpenAI、pgvector |
+| Step 2: UX改善 | 完了 | SSEストリーミング、セッション管理、Gemini風UI |
+| Step 3: マルチモーダル + Azure | 完了 | CLIP、Azure Blob Storage、Terraform |
+| Step 4: エージェント設定基盤 | **一部完了** | DB + Admin API済、動的読み込み・管理画面UI未完 |
+| Step 5: 認証 | 未着手 | auth.py実装済みだが未統合 |
+| Step 6: マルチエージェント | 未着手 | |
+| Step 7: 精度改善 | 未着手 | |
+
+### 既知のギャップ
+
+- `ChatService` が LLMパラメータ (temperature, max_tokens) を Settings からハードコードで初期化しており、DBの `llm_models` テーブルの値を使用していない
+- `ChatService._retrieve()` の `k=3` がハードコード。`knowledge_sources.config.similarity_k` を読んでいない
+- 管理画面フロントエンドはプロンプト編集のみ。モデル・ナレッジソース・パラメータの編集UIなし
+- Admin.tsx が `apiService` を使わず直接 `fetch` している
+
+## 3. フィーチャー一覧
+
+| ID | フィーチャー名 | 優先度 | 複雑度 | 依存 | 詳細 |
+|----|---------------|--------|--------|------|------|
+| F0 | エージェント設定基盤の完成 | P0 (前提) | M | なし | [F0-agent-config.md](F0-agent-config.md) |
+| FA | Context Engineering Lab | P1 | L | F0 | [FA-context-lab.md](FA-context-lab.md) |
+| FB | Search Agent (Agentic RAG) | P2 | XL | F0, FA | [FB-search-agent.md](FB-search-agent.md) |
+| FC | WebRTC Voice対話 | P2 | XL | なし | [FC-voice.md](FC-voice.md) |
+| FD | 認証統合 (Entra ID) | P1 | S | なし | [FD-auth.md](FD-auth.md) |
+| FE | 精度改善・運用基盤 | P2 | L | F0, FA | [FE-accuracy.md](FE-accuracy.md) |
+
+**複雑度の目安**: S=数日, M=1週間, L=2-3週間, XL=3-4週間
+
+## 4. 依存グラフ
+
+```
+FD (認証) ────────────────────────────┐
+  [独立・並行可]                        │
+                                       ▼
+F0 (Step4完了) ──► FA (Context Lab) ──► FB (Search Agent)
+                        │                    │
+                        ▼                    │
+                   FE (精度改善) ◄───────────┘
+
+FC (Voice) ──────── [独立・いつでも着手可]
+```
+
+**判断根拠**:
+- **F0が全ての前提**: ChatServiceがDB値を読まない限り、管理画面で設定を変更しても反映されない
+- **FA→FB**: Search AgentのチューニングにContext Labのプレビュー機能が必要
+- **FDは独立**: `core/auth.py` 実装済み + グレースフルスキップ付きで並行可能
+- **FCは直交**: 既存アーキテクチャと独立しており、いつでも着手可
+
+## 5. 実装フェーズ
+
+### Phase 1: 基盤完成 (F0 + FD) — 並行実施可能
+
+ChatServiceのDB動的読み込みを完成させ、管理画面の設定変更が実際に反映されるようにする。同時にEntra ID認証を統合する。
+
+### Phase 2: Context Engineering Lab (FA)
+
+RAGパイプラインのパラメータ調整・プレビュー・テスト実行ができる開発者向けツールを構築する。
+
+### Phase 3: Search Agent + 精度改善 (FB + FE)
+
+LangGraphベースのマルチステップ検索エージェントを実装し、評価指標による精度改善サイクルを確立する。
+
+### Phase 4: WebRTC Voice対話 (FC)
+
+音声入力→STT→RAGチャット→TTS→音声出力のリアルタイムパイプラインを構築する。Phase 1以降ならいつでも着手可能。
+
+## 6. 全体API変更サマリ
+
+| Feature | 新規API | 既存API変更 |
+|---------|---------|-------------|
+| F0 | `PUT /admin/models/{id}`, `PUT /admin/knowledge-sources/{id}` | なし |
+| FA | `POST /admin/test-retrieval`, `POST /admin/test-chat`, `POST /admin/context-preview` | なし |
+| FB | なし | `/chat/stream` に SSE type="step" 追加 |
+| FC | `POST /voice/offer`, `POST /voice/ice-candidate`, `GET /voice/sessions/{id}/events` | なし |
+| FD | なし | 全既存エンドポイントで認証が有効化 |
+| FE | `POST /admin/evaluations/run`, `GET /admin/evaluations/results`, `POST /admin/evaluations/datasets` | なし |
+
+## 7. 全体DB変更サマリ
+
+| Feature | 新規テーブル | 既存テーブル変更 |
+|---------|-------------|----------------|
+| F0 | なし | なし |
+| FA | なし | なし |
+| FB | なし | seedデータ追加 |
+| FC | `voice_sessions`, `voice_events` | なし |
+| FD | なし | なし |
+| FE | `evaluation_datasets`, `evaluation_results` | なし |
+
+## 8. 将来検討事項
+
+| 項目 | 現状 | 将来対応 |
+|------|------|---------|
+| シークレット管理 | `.env` ファイルで管理 | Azure Key Vault に移行。`DefaultAzureCredential` + `azure-keyvault-secrets` SDKで起動時取得。対象: `AZURE_OPENAI_API_KEY`, `AZURE_STORAGE_CONNECTION_STRING`, `LANGFUSE_SECRET_KEY` |
+
+## 9. リスク・留意事項
+
+| リスク | 影響 | 対策 |
+|--------|------|------|
+| LangGraphのバージョン互換性 | FBの実装に影響 | バージョン固定 + 最小PoCを先に実装 |
+| WebRTCのNAT/ファイアウォール問題 | FCがローカル以外で動作しない | TURNサーバー (coturn) をdocker-composeに追加 |
+| aiortcのPythonバージョン制約 | FCのランタイム問題 | 代替案としてWebSocket + AudioWorkletを検討 |
+| LLMキャッシュ無効化タイミング | F0で設定変更が即反映されない | TTLキャッシュ (60s) + 手動クリアAPI |
+| 評価データセットの作成コスト | FEの実用性 | 初期は小規模 (10-20 queries) で開始 |

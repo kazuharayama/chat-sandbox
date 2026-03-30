@@ -7,13 +7,34 @@ from pydantic import BaseModel
 class LLMModelInfo(BaseModel):
     id: str
     name: str
+    provider: str  # azure_openai, ollama, vllm
     deployment_name: str
-    endpoint_env_var: str
-    api_key_env_var: str
-    api_version: str
     temperature: Optional[float]
     max_tokens: Optional[int]
     is_default: bool
+    config: Any  # provider-specific config (JSONB)
+
+
+class LLMModelCreateRequest(BaseModel):
+    name: str
+    provider: str  # azure_openai, ollama, vllm
+    deployment_name: str
+    temperature: Optional[float] = 0.7
+    max_tokens: Optional[int] = None
+    is_default: bool = False
+    config: Optional[dict] = None
+
+
+class LLMModelUpdateRequest(BaseModel):
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+    is_default: Optional[bool] = None
+    config: Optional[dict] = None
+
+
+class KnowledgeSourceUpdateRequest(BaseModel):
+    config: Optional[dict] = None
+    is_enabled: Optional[bool] = None
 
 
 class AgentInfo(BaseModel):

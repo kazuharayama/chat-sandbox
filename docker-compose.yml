@@ -236,8 +236,52 @@ services:
       exit 0;
       "
 
+  # --- Local LLM (GPU) ---
+  ollama-gpu:
+    image: ollama/ollama
+    profiles: ["gpu"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  vllm:
+    image: vllm/vllm-openai
+    profiles: ["gpu"]
+    ports:
+      - "8001:8000"
+    environment:
+      - MODEL_NAME=${VLLM_MODEL:-meta-llama/Llama-3.1-8B-Instruct}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    volumes:
+      - vllm_cache:/root/.cache/huggingface
+
+  # --- Local LLM (CPU) ---
+  ollama-cpu:
+    image: ollama/ollama
+    profiles: ["cpu"]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
 volumes:
   postgres_data:
   langfuse_postgres_data:
   clickhouse_data:
   minio_data:
+  ollama_data:
+  vllm_cache:

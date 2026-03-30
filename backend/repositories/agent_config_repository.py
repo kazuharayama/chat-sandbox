@@ -9,6 +9,7 @@ from models.agent_config import (
     AgentParameterInfo,
     KnowledgeSourceInfo,
     LLMModelInfo,
+    LLMModelCreateRequest,
     PromptInfo,
     RoutingRuleInfo,
 )
@@ -28,13 +29,12 @@ class AgentConfigRepository:
                 CREATE TABLE IF NOT EXISTS llm_models (
                     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                     name VARCHAR(100) UNIQUE NOT NULL,
+                    provider VARCHAR(50) NOT NULL DEFAULT 'azure_openai',
                     deployment_name VARCHAR(200) NOT NULL,
-                    endpoint_env_var VARCHAR(100) DEFAULT 'AZURE_OPENAI_ENDPOINT',
-                    api_key_env_var VARCHAR(100) DEFAULT 'AZURE_OPENAI_API_KEY',
-                    api_version VARCHAR(50) DEFAULT '2024-08-01-preview',
                     temperature FLOAT DEFAULT 0.7,
                     max_tokens INT,
                     is_default BOOLEAN DEFAULT false,
+                    config JSONB DEFAULT '{}',
                     created_at TIMESTAMPTZ DEFAULT now(),
                     updated_at TIMESTAMPTZ DEFAULT now()
                 )
@@ -107,8 +107,9 @@ class AgentConfigRepository:
             count = conn.execute(text("SELECT COUNT(*) FROM llm_models")).scalar()
             if count == 0:
                 conn.execute(text("""
-                    INSERT INTO llm_models (name, deployment_name, temperature, is_default)
-                    VALUES ('gpt-4o', 'gpt-4o', 0.7, true)
+                    INSERT INTO llm_models (name, provider, deployment_name, temperature, is_default, config)
+                    VALUES ('gpt-4o', 'azure_openai', 'gpt-4o', 0.7, true,
+                            '{"api_version": "2024-08-01-preview"}')
                 """))
                 conn.execute(text("""
                     INSERT INTO agent_definitions (name, display_name, description, agent_type, llm_model_id, is_enabled)
@@ -167,11 +168,86 @@ class AgentConfigRepository:
             return self._to_model(row) if row else None
 
     def _to_model(self, row) -> LLMModelInfo:
+        config = row[7] if row[7] else {}
+        if isinstance(config, str):
+            config = json.loads(config)
         return LLMModelInfo(
-            id=str(row[0]), name=row[1], deployment_name=row[2],
-            endpoint_env_var=row[3], api_key_env_var=row[4], api_version=row[5],
-            temperature=row[6], max_tokens=row[7], is_default=row[8],
+            id=str(row[0]), name=row[1], provider=row[2], deployment_name=row[3],
+            temperature=row[4], max_tokens=row[5], is_default=row[6], config=config,
         )
+
+    def create_model(self, req: LLMModelCreateRequest) -> LLMModelInfo:
+        with self.engine.connect() as conn:
+            row = conn.execute(
+                text("""
+                    INSERT INTO llm_models (name, provider, deployment_name, temperature, max_tokens, is_default, config)
+                    VALUES (:name, :provider, :deployment_name, :temperature, :max_tokens, :is_default, :config::jsonb)
+                    RETURNING *
+                """),
+                {
+                    "name": req.name, "provider": req.provider, "deployment_name": req.deployment_name,
+                    "temperature": req.temperature, "max_tokens": req.max_tokens,
+                    "is_default": req.is_default, "config": json.dumps(req.config or {}),
+                },
+            ).fetchone()
+            conn.commit()
+            return self._to_model(row)
+
+    def update_model(self, model_id: str, temperature: float = None, max_tokens: int = None,
+                     is_default: bool = None, config: dict = None) -> Optional[LLMModelInfo]:
+        with self.engine.connect() as conn:
+            # If setting as default, clear other defaults first
+            if is_default:
+                conn.execute(text("UPDATE llm_models SET is_default = false"))
+
+            updates = []
+            params = {"id": model_id}
+            if temperature is not None:
+                updates.append("temperature = :temperature")
+                params["temperature"] = temperature
+            if max_tokens is not None:
+                updates.append("max_tokens = :max_tokens")
+                params["max_tokens"] = max_tokens
+            if is_default is not None:
+                updates.append("is_default = :is_default")
+                params["is_default"] = is_default
+            if config is not None:
+                updates.append("config = :config::jsonb")
+                params["config"] = json.dumps(config)
+            updates.append("updated_at = now()")
+
+            row = conn.execute(
+                text(f"UPDATE llm_models SET {', '.join(updates)} WHERE id = :id RETURNING *"),
+                params,
+            ).fetchone()
+            conn.commit()
+            return self._to_model(row) if row else None
+
+    def update_knowledge_source(self, source_id: str, config: dict = None,
+                                is_enabled: bool = None) -> Optional[KnowledgeSourceInfo]:
+        with self.engine.connect() as conn:
+            updates = []
+            params = {"id": source_id}
+            if config is not None:
+                updates.append("config = :config::jsonb")
+                params["config"] = json.dumps(config)
+            if is_enabled is not None:
+                updates.append("is_enabled = :is_enabled")
+                params["is_enabled"] = is_enabled
+            updates.append("updated_at = now()")
+
+            row = conn.execute(
+                text(f"UPDATE knowledge_sources SET {', '.join(updates)} WHERE id = :id RETURNING *"),
+                params,
+            ).fetchone()
+            conn.commit()
+            if not row:
+                return None
+            return KnowledgeSourceInfo(
+                id=str(row[0]), name=row[1], source_type=row[2],
+                collection_name=row[3], config=json.loads(row[4]) if isinstance(row[4], str) else row[4],
+                is_enabled=row[5],
+            )
 
     # --- Agent Definitions ---
 

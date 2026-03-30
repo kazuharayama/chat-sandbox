@@ -11,6 +11,7 @@ from repositories.agent_config_repository import AgentConfigRepository
 from repositories.chat_repository import ChatRepository
 from repositories.image_repository import ImageRepository
 from repositories.vector_repository import VectorRepository
+from services.llm_factory import get_or_create_llm
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +41,14 @@ class ChatService:
         chat_repo: Optional[ChatRepository] = None,
         agent_config_repo: Optional[AgentConfigRepository] = None,
     ):
+        self.settings = settings
         self.vector_repo = vector_repo
         self.image_repo = image_repo
         self.chat_repo = chat_repo
         self.agent_config_repo = agent_config_repo
-        self.llm = AzureChatOpenAI(
+
+        # Fallback LLM (used when DB has no model config)
+        self._fallback_llm = AzureChatOpenAI(
             azure_deployment=settings.azure_openai_llm_deployment,
             azure_endpoint=settings.azure_openai_endpoint,
             api_key=settings.azure_openai_api_key,
@@ -53,7 +57,7 @@ class ChatService:
             streaming=True,
         )
 
-        # Langfuse tracing (v4: uses LANGFUSE_* env vars automatically)
+        # Langfuse tracing
         self.langfuse_handler = None
         if settings.langfuse_public_key and settings.langfuse_secret_key:
             try:
@@ -65,6 +69,31 @@ class ChatService:
                 logger.info("Langfuse tracing enabled")
             except Exception as e:
                 logger.warning("Failed to initialize Langfuse: %s", e)
+
+    def _get_llm(self):
+        """Get LLM instance from DB config with TTL cache, fallback to default."""
+        if not self.agent_config_repo:
+            return self._fallback_llm
+        try:
+            model = self.agent_config_repo.get_default_model()
+            if model:
+                return get_or_create_llm(model, self.settings)
+        except Exception as e:
+            logger.warning("Failed to get LLM from DB config, using fallback: %s", e)
+        return self._fallback_llm
+
+    def _get_knowledge_config(self, collection_name: str) -> dict:
+        """Get knowledge source config (similarity_k, etc.) from DB."""
+        if not self.agent_config_repo:
+            return {}
+        try:
+            sources = self.agent_config_repo.list_knowledge_sources()
+            for src in sources:
+                if src.collection_name == collection_name:
+                    return src.config or {}
+        except Exception as e:
+            logger.warning("Failed to get knowledge source config: %s", e)
+        return {}
 
     def _get_prompt(self, prompt_key: str, fallback: str) -> str:
         """Get prompt from DB, fallback to hardcoded default."""
@@ -133,8 +162,9 @@ class ChatService:
             self.chat_repo.add_message(session_id, "user", request.message)
 
         messages, sources = self._build_messages(request, session_id)
+        llm = self._get_llm()
         config = {"callbacks": [self.langfuse_handler]} if self.langfuse_handler else {}
-        response = self.llm.invoke(messages, config=config).content
+        response = llm.invoke(messages, config=config).content
 
         if self.chat_repo and session_id:
             self.chat_repo.add_message(session_id, "bot", response, sources)
@@ -156,9 +186,10 @@ class ChatService:
         if sources:
             yield f"data: {json.dumps({'type': 'sources', 'sources': sources}, ensure_ascii=False)}\n\n"
 
+        llm = self._get_llm()
         full_response = ""
         config = {"callbacks": [self.langfuse_handler]} if self.langfuse_handler else {}
-        async for chunk in self.llm.astream(messages, config=config):
+        async for chunk in llm.astream(messages, config=config):
             content = chunk.content
             if content:
                 full_response += content
@@ -174,15 +205,23 @@ class ChatService:
     def _retrieve(self, query: str) -> tuple:
         context = ""
         sources = []
+
+        # Get similarity_k from DB config
+        text_config = self._get_knowledge_config("chat_documents")
+        text_k = text_config.get("similarity_k", 3)
+
         if self.vector_repo:
-            docs = self.vector_repo.similarity_search(query, k=3)
+            docs = self.vector_repo.similarity_search(query, k=text_k)
             context = "\n\n".join(doc.page_content for doc in docs)
             sources = [doc.metadata.get("source", "不明なソース") for doc in docs]
 
         image_context = "なし"
+        image_config = self._get_knowledge_config("image_documents")
+        image_k = image_config.get("similarity_k", 2)
+
         if self.image_repo:
             try:
-                image_docs = self.image_repo.search_by_text(query, k=2)
+                image_docs = self.image_repo.search_by_text(query, k=image_k)
                 if image_docs:
                     image_context = "\n".join(
                         f"- {doc.metadata.get('source', '画像')}" for doc in image_docs

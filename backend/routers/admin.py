@@ -1,8 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from core.dependencies import get_agent_config_repository
-from models.agent_config import PromptUpdateRequest
+from models.agent_config import (
+    KnowledgeSourceUpdateRequest,
+    LLMModelCreateRequest,
+    LLMModelUpdateRequest,
+    PromptUpdateRequest,
+)
 from repositories.agent_config_repository import AgentConfigRepository
+from services.llm_factory import clear_llm_cache
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -12,6 +18,35 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 @router.get("/models")
 async def list_models(repo: AgentConfigRepository = Depends(get_agent_config_repository)):
     return repo.list_models()
+
+
+@router.post("/models")
+async def create_model(
+    body: LLMModelCreateRequest,
+    repo: AgentConfigRepository = Depends(get_agent_config_repository),
+):
+    model = repo.create_model(body)
+    clear_llm_cache()
+    return model
+
+
+@router.put("/models/{model_id}")
+async def update_model(
+    model_id: str,
+    body: LLMModelUpdateRequest,
+    repo: AgentConfigRepository = Depends(get_agent_config_repository),
+):
+    model = repo.update_model(
+        model_id,
+        temperature=body.temperature,
+        max_tokens=body.max_tokens,
+        is_default=body.is_default,
+        config=body.config,
+    )
+    if not model:
+        raise HTTPException(status_code=404, detail="モデルが見つかりません")
+    clear_llm_cache()
+    return model
 
 
 # --- Agents ---
@@ -77,8 +112,28 @@ async def list_knowledge_sources(repo: AgentConfigRepository = Depends(get_agent
     return repo.list_knowledge_sources()
 
 
+@router.put("/knowledge-sources/{source_id}")
+async def update_knowledge_source(
+    source_id: str,
+    body: KnowledgeSourceUpdateRequest,
+    repo: AgentConfigRepository = Depends(get_agent_config_repository),
+):
+    source = repo.update_knowledge_source(source_id, config=body.config, is_enabled=body.is_enabled)
+    if not source:
+        raise HTTPException(status_code=404, detail="ナレッジソースが見つかりません")
+    return source
+
+
 # --- Routing Rules ---
 
 @router.get("/routing-rules")
 async def list_routing_rules(repo: AgentConfigRepository = Depends(get_agent_config_repository)):
     return repo.list_routing_rules()
+
+
+# --- Cache Management ---
+
+@router.post("/cache/clear")
+async def clear_cache():
+    clear_llm_cache()
+    return {"status": "ok", "message": "LLMキャッシュをクリアしました"}

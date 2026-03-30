@@ -151,6 +151,93 @@ class ApiService {
     }
   }
 
+  // Admin - Models
+  async listModels(): Promise<LLMModel[]> {
+    const response = await fetch(`${this.baseUrl}/admin/models`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  }
+
+  async createModel(data: LLMModelCreate): Promise<LLMModel> {
+    const response = await fetch(`${this.baseUrl}/admin/models`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  }
+
+  async updateModel(modelId: string, data: LLMModelUpdate): Promise<LLMModel> {
+    const response = await fetch(`${this.baseUrl}/admin/models/${modelId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  }
+
+  // Admin - Agents
+  async listAgents(): Promise<Agent[]> {
+    const response = await fetch(`${this.baseUrl}/admin/agents`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  }
+
+  async getAgentPrompts(agentId: string): Promise<Prompt[]> {
+    const response = await fetch(`${this.baseUrl}/admin/agents/${agentId}/prompts`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  }
+
+  async updatePrompt(agentId: string, promptKey: string, content: string, updatedBy?: string): Promise<Prompt> {
+    const response = await fetch(`${this.baseUrl}/admin/prompts/${agentId}/${promptKey}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, updated_by: updatedBy || 'admin' }),
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  }
+
+  async getPromptVersions(agentId: string, promptKey: string): Promise<Prompt[]> {
+    const response = await fetch(`${this.baseUrl}/admin/prompts/${agentId}/${promptKey}/versions`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  }
+
+  async rollbackPrompt(agentId: string, promptKey: string, version: number): Promise<Prompt> {
+    const response = await fetch(`${this.baseUrl}/admin/prompts/${agentId}/${promptKey}/rollback/${version}`, {
+      method: 'POST',
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  }
+
+  // Admin - Knowledge Sources
+  async listKnowledgeSources(): Promise<KnowledgeSource[]> {
+    const response = await fetch(`${this.baseUrl}/admin/knowledge-sources`);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  }
+
+  async updateKnowledgeSource(sourceId: string, data: KnowledgeSourceUpdate): Promise<KnowledgeSource> {
+    const response = await fetch(`${this.baseUrl}/admin/knowledge-sources/${sourceId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  }
+
+  // Admin - Cache
+  async clearCache(): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/admin/cache/clear`, { method: 'POST' });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
   // Sessions
   async createSession(): Promise<Session> {
     const response = await fetch(`${this.baseUrl}/sessions`, { method: 'POST' });
@@ -192,6 +279,69 @@ interface SessionMessage {
   created_at: string;
 }
 
+// Admin types
+interface LLMModel {
+  id: string;
+  name: string;
+  provider: string;
+  deployment_name: string;
+  temperature: number | null;
+  max_tokens: number | null;
+  is_default: boolean;
+  config: Record<string, any>;
+}
+
+interface LLMModelCreate {
+  name: string;
+  provider: string;
+  deployment_name: string;
+  temperature?: number;
+  max_tokens?: number;
+  is_default?: boolean;
+  config?: Record<string, any>;
+}
+
+interface LLMModelUpdate {
+  temperature?: number;
+  max_tokens?: number;
+  is_default?: boolean;
+  config?: Record<string, any>;
+}
+
+interface Agent {
+  id: string;
+  name: string;
+  display_name: string;
+  description: string | null;
+  agent_type: string;
+  is_enabled: boolean;
+}
+
+interface Prompt {
+  id: string;
+  agent_id: string;
+  prompt_key: string;
+  content: string;
+  version: number;
+  is_active: boolean;
+  updated_by: string | null;
+  created_at: string;
+}
+
+interface KnowledgeSource {
+  id: string;
+  name: string;
+  source_type: string;
+  collection_name: string;
+  config: Record<string, any>;
+  is_enabled: boolean;
+}
+
+interface KnowledgeSourceUpdate {
+  config?: Record<string, any>;
+  is_enabled?: boolean;
+}
+
 export const apiService = new ApiService();
 export type {
   ChatRequest,
@@ -203,4 +353,11 @@ export type {
   StreamCallbacks,
   Session,
   SessionMessage,
+  LLMModel,
+  LLMModelCreate,
+  LLMModelUpdate,
+  Agent,
+  Prompt,
+  KnowledgeSource,
+  KnowledgeSourceUpdate,
 };
