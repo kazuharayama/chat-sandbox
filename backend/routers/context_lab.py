@@ -3,10 +3,11 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 
+from core.auth import require_admin
 from core.dependencies import get_context_lab_service
 from services.context_lab_service import ContextLabService
 
-router = APIRouter(prefix="/admin", tags=["context-lab"])
+router = APIRouter(prefix="/admin", tags=["context-lab"], dependencies=[Depends(require_admin)])
 
 
 class TestRetrievalRequest(BaseModel):

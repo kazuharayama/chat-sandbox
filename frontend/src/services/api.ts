@@ -45,13 +45,36 @@ interface StreamCallbacks {
 
 class ApiService {
   private baseUrl: string;
+  private getToken: (() => Promise<string | null>) | null = null;
 
   constructor() {
     this.baseUrl = 'http://localhost:8000';
   }
 
+  /** Set token provider for MSAL auth */
+  setTokenProvider(fn: () => Promise<string | null>) {
+    this.getToken = fn;
+  }
+
+  private async authHeaders(): Promise<Record<string, string>> {
+    const headers: Record<string, string> = {};
+    if (this.getToken) {
+      const token = await this.getToken();
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+    return headers;
+  }
+
+  private async fetchWithAuth(url: string, init: RequestInit = {}): Promise<Response> {
+    const auth = await this.authHeaders();
+    const headers = { ...auth, ...(init.headers as Record<string, string> || {}) };
+    return fetch(url, { ...init, headers });
+  }
+
   async sendMessage(request: ChatRequest): Promise<ChatResponse> {
-    const response = await fetch(`${this.baseUrl}/chat`, {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -69,7 +92,7 @@ class ApiService {
   }
 
   async sendMessageStream(request: ChatRequest, callbacks: StreamCallbacks): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/chat/stream`, {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/chat/stream`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -127,7 +150,7 @@ class ApiService {
     formData.append('file', request.file);
     formData.append('document_type', request.document_type);
 
-    const response = await fetch(`${this.baseUrl}/upload`, {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/upload`, {
       method: 'POST',
       body: formData,
     });
@@ -139,7 +162,7 @@ class ApiService {
   }
 
   async getDocuments(): Promise<DocumentListResponse> {
-    const response = await fetch(`${this.baseUrl}/documents`);
+    const response = await this.fetchWithAuth(`${this.baseUrl}/documents`);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -147,7 +170,7 @@ class ApiService {
   }
 
   async deleteDocument(documentId: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/documents/${documentId}`, {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/documents/${documentId}`, {
       method: 'DELETE',
     });
     if (!response.ok) {
@@ -157,13 +180,13 @@ class ApiService {
 
   // Admin - Models
   async listModels(): Promise<LLMModel[]> {
-    const response = await fetch(`${this.baseUrl}/admin/models`);
+    const response = await this.fetchWithAuth(`${this.baseUrl}/admin/models`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
   }
 
   async createModel(data: LLMModelCreate): Promise<LLMModel> {
-    const response = await fetch(`${this.baseUrl}/admin/models`, {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/admin/models`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -173,7 +196,7 @@ class ApiService {
   }
 
   async updateModel(modelId: string, data: LLMModelUpdate): Promise<LLMModel> {
-    const response = await fetch(`${this.baseUrl}/admin/models/${modelId}`, {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/admin/models/${modelId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -184,19 +207,19 @@ class ApiService {
 
   // Admin - Agents
   async listAgents(): Promise<Agent[]> {
-    const response = await fetch(`${this.baseUrl}/admin/agents`);
+    const response = await this.fetchWithAuth(`${this.baseUrl}/admin/agents`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
   }
 
   async getAgentPrompts(agentId: string): Promise<Prompt[]> {
-    const response = await fetch(`${this.baseUrl}/admin/agents/${agentId}/prompts`);
+    const response = await this.fetchWithAuth(`${this.baseUrl}/admin/agents/${agentId}/prompts`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
   }
 
   async updatePrompt(agentId: string, promptKey: string, content: string, updatedBy?: string): Promise<Prompt> {
-    const response = await fetch(`${this.baseUrl}/admin/prompts/${agentId}/${promptKey}`, {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/admin/prompts/${agentId}/${promptKey}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content, updated_by: updatedBy || 'admin' }),
@@ -206,13 +229,13 @@ class ApiService {
   }
 
   async getPromptVersions(agentId: string, promptKey: string): Promise<Prompt[]> {
-    const response = await fetch(`${this.baseUrl}/admin/prompts/${agentId}/${promptKey}/versions`);
+    const response = await this.fetchWithAuth(`${this.baseUrl}/admin/prompts/${agentId}/${promptKey}/versions`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
   }
 
   async rollbackPrompt(agentId: string, promptKey: string, version: number): Promise<Prompt> {
-    const response = await fetch(`${this.baseUrl}/admin/prompts/${agentId}/${promptKey}/rollback/${version}`, {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/admin/prompts/${agentId}/${promptKey}/rollback/${version}`, {
       method: 'POST',
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -221,13 +244,13 @@ class ApiService {
 
   // Admin - Knowledge Sources
   async listKnowledgeSources(): Promise<KnowledgeSource[]> {
-    const response = await fetch(`${this.baseUrl}/admin/knowledge-sources`);
+    const response = await this.fetchWithAuth(`${this.baseUrl}/admin/knowledge-sources`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
   }
 
   async updateKnowledgeSource(sourceId: string, data: KnowledgeSourceUpdate): Promise<KnowledgeSource> {
-    const response = await fetch(`${this.baseUrl}/admin/knowledge-sources/${sourceId}`, {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/admin/knowledge-sources/${sourceId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -238,7 +261,7 @@ class ApiService {
 
   // Context Lab
   async testRetrieval(params: TestRetrievalRequest): Promise<TestRetrievalResponse> {
-    const response = await fetch(`${this.baseUrl}/admin/test-retrieval`, {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/admin/test-retrieval`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -248,7 +271,7 @@ class ApiService {
   }
 
   async contextPreview(params: ContextPreviewRequest): Promise<ContextPreviewResponse> {
-    const response = await fetch(`${this.baseUrl}/admin/context-preview`, {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/admin/context-preview`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -258,7 +281,7 @@ class ApiService {
   }
 
   async testChatStream(params: TestChatRequest, callbacks: { onToken: (t: string) => void; onDone: () => void; onError: (e: Error) => void }): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/admin/test-chat`, {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/admin/test-chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
@@ -291,31 +314,31 @@ class ApiService {
 
   // Admin - Cache
   async clearCache(): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/admin/cache/clear`, { method: 'POST' });
+    const response = await this.fetchWithAuth(`${this.baseUrl}/admin/cache/clear`, { method: 'POST' });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
   }
 
   // Sessions
   async createSession(): Promise<Session> {
-    const response = await fetch(`${this.baseUrl}/sessions`, { method: 'POST' });
+    const response = await this.fetchWithAuth(`${this.baseUrl}/sessions`, { method: 'POST' });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
   }
 
   async listSessions(): Promise<Session[]> {
-    const response = await fetch(`${this.baseUrl}/sessions`);
+    const response = await this.fetchWithAuth(`${this.baseUrl}/sessions`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
   }
 
   async getSessionMessages(sessionId: string): Promise<SessionMessage[]> {
-    const response = await fetch(`${this.baseUrl}/sessions/${sessionId}/messages`);
+    const response = await this.fetchWithAuth(`${this.baseUrl}/sessions/${sessionId}/messages`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return await response.json();
   }
 
   async deleteSession(sessionId: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/sessions/${sessionId}`, { method: 'DELETE' });
+    const response = await this.fetchWithAuth(`${this.baseUrl}/sessions/${sessionId}`, { method: 'DELETE' });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
   }
 }

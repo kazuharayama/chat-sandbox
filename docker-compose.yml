@@ -11,6 +11,8 @@ services:
       - /app/node_modules
     environment:
       - VITE_API_URL=http://backend:8000
+      - VITE_AZURE_CLIENT_ID=${AZURE_CLIENT_ID:-}
+      - VITE_AZURE_TENANT_ID=${AZURE_TENANT_ID:-}
     depends_on:
       - backend
 
@@ -37,6 +39,12 @@ services:
       - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
       - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
       - LANGFUSE_HOST=http://langfuse-web:3000
+      # Entra ID (optional - auth skipped if not set)
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID:-}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID:-}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET:-}
+      - AZURE_ALLOWED_GROUP_ID=${AZURE_ALLOWED_GROUP_ID:-}
+      - AZURE_ADMIN_GROUP_ID=${AZURE_ADMIN_GROUP_ID:-}
       # PostgreSQL
       - DATABASE_URL=postgresql://chat_user:chat_pass@postgres:5432/chat_db
       - DB_HOST=postgres

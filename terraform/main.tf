@@ -6,6 +6,10 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 4.0"
     }
+    azuread = {
+      source  = "hashicorp/azuread"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -13,6 +17,8 @@ provider "azurerm" {
   features {}
   subscription_id = var.subscription_id
 }
+
+provider "azuread" {}
 
 # Resource Group
 resource "azurerm_resource_group" "main" {
@@ -29,6 +35,15 @@ module "vnet" {
   location            = azurerm_resource_group.main.location
   vnet_name           = "${var.project_name}-vnet"
   tags                = var.tags
+}
+
+# Entra ID (認証)
+module "entra_id" {
+  source = "./modules/entra_id"
+
+  project_name      = var.project_name
+  redirect_uris     = ["http://localhost:5174/auth/callback"]
+  spa_redirect_uris = ["http://localhost:5174/"]
 }
 
 # Storage (ドキュメントアップロード用)

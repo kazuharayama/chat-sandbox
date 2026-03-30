@@ -1,5 +1,6 @@
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 
+from core.auth import require_group_member
 from core.dependencies import get_document_service
 from models.document import DocumentUploadResponse
 from services.document_service import DocumentService
@@ -12,6 +13,7 @@ async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     document_type: str = Form(...),
+    user: dict = Depends(require_group_member),
     document_service: DocumentService = Depends(get_document_service),
 ):
     try:
@@ -33,6 +35,7 @@ async def upload_document(
 @router.delete("/documents/{document_id}")
 async def delete_document(
     document_id: str,
+    user: dict = Depends(require_group_member),
     document_service: DocumentService = Depends(get_document_service),
 ):
     try:
@@ -49,6 +52,7 @@ async def delete_document(
 
 @router.get("/documents")
 async def list_documents(
+    user: dict = Depends(require_group_member),
     document_service: DocumentService = Depends(get_document_service),
 ):
     try:

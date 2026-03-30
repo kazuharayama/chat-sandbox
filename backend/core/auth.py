@@ -83,3 +83,17 @@ def require_group_member(request: Request, settings: Settings = Depends(get_sett
         raise HTTPException(status_code=403, detail="このアプリへのアクセス権がありません")
 
     return payload
+
+
+def require_admin(request: Request, settings: Settings = Depends(get_settings)) -> dict:
+    """Require user to be a member of the admin group. Skips if not configured."""
+    if not settings.azure_admin_group_id:
+        return require_group_member(request, settings)
+
+    payload = require_auth(request, settings)
+    groups = payload.get("groups", [])
+
+    if settings.azure_admin_group_id not in groups:
+        raise HTTPException(status_code=403, detail="管理者権限が必要です")
+
+    return payload

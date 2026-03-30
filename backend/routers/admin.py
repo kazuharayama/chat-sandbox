@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 
+from core.auth import require_admin
 from core.dependencies import get_agent_config_repository
 from models.agent_config import (
     KnowledgeSourceUpdateRequest,
@@ -10,7 +11,7 @@ from models.agent_config import (
 from repositories.agent_config_repository import AgentConfigRepository
 from services.llm_factory import clear_llm_cache
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
 
 # --- LLM Models ---

@@ -77,11 +77,15 @@ chat-sandbox/
 │       │   ├── Documents.tsx  # ドキュメント管理
 │       │   ├── ContextLab.tsx # Context Lab (RAGパラメータ実験)
 │       │   └── Admin.tsx      # 管理画面 (モデル/プロンプト/ナレッジソース)
+│       ├── auth/
+│       │   ├── msalConfig.ts  # MSAL設定 (Entra ID)
+│       │   ├── AuthGuard.tsx  # 認証ガード (未設定時はスキップ)
+│       │   └── useAuthSetup.ts # トークン自動取得hook
 │       ├── components/
 │       │   ├── ChatWindow.tsx
 │       │   ├── MessageInput.tsx
 │       │   └── Sidebar.tsx
-│       └── services/api.ts    # APIクライアント (全エンドポイント集約)
+│       └── services/api.ts    # APIクライアント (全エンドポイント集約、Bearer自動付与)
 ├── docker/                     # Docker設定
 ├── docs/                       # ドキュメント
 │   ├── PRD.md                 # プロダクト要件定義書
@@ -89,6 +93,13 @@ chat-sandbox/
 │   ├── architecture-flow.md   # アーキテクチャ・フロー図 (Mermaid)
 │   ├── feature-catalog.md     # 機能カタログ
 │   └── er-diagram.md          # ER図 (Mermaid)
+├── terraform/                  # インフラ (Azure)
+│   ├── main.tf               # リソースグループ/Storage/Entra ID
+│   ├── modules/
+│   │   ├── storage/           # Azure Blob Storage
+│   │   ├── vnet/              # VNet
+│   │   └── entra_id/          # Entra IDアプリ登録+グループ
+│   └── outputs.tf             # terraform output で .env 値を取得
 ├── scripts/
 │   └── start.sh               # GPU自動検出 + 起動スクリプト
 ├── .env.example               # 環境変数テンプレート
@@ -108,6 +119,7 @@ routers → services → repositories → infrastructure
 ### 前提条件
 - Docker & Docker Compose
 - Azure OpenAI APIキー
+- Azure CLI (`az login` 済み) — Terraform/Entra ID用
 
 ### 環境変数 (.env)
 ```bash
@@ -222,6 +234,7 @@ docker compose down -v && docker compose up -d
 - Tailwind CSSでスタイリング
 - `services/api.ts` に全API呼び出しを集約
 - lucide-react でアイコン
+- React Router でURL遷移 (`/`, `/documents`, `/context-lab`, `/admin`)
 
 ## データベース
 
@@ -272,7 +285,8 @@ docker compose exec ollama-cpu ollama pull <model>
 ## 注意事項
 
 1. **CORS設定**: 現在は全オリジン許可 (`*`) — 本番では制限が必要
-2. **認証**: `core/auth.py` 実装済みだが未統合 (FD)
+2. **認証**: Entra ID統合済み (MSAL + グループベース)。環境変数未設定時はグレースフルスキップ
 3. **シークレット管理**: `.env` ファイルで管理。将来 Azure Key Vault に移行予定
 4. **Langfuse**: 初期設定済み (pk-lf-local / sk-lf-local)、本番では変更が必要
 5. **DBスキーマ変更時**: `docker compose down -v && docker compose up -d` が必要
+6. **Terraform**: `terraform apply` でEntra IDリソース作成 → `terraform output` で `.env` 値を取得
