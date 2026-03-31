@@ -312,6 +312,62 @@ class ApiService {
     }
   }
 
+  // Tasks
+  async listTasks(status?: string): Promise<Task[]> {
+    const url = status ? `${this.baseUrl}/tasks?status=${status}` : `${this.baseUrl}/tasks`;
+    const response = await this.fetchWithAuth(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  }
+
+  async createTask(data: TaskCreate): Promise<Task> {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  }
+
+  async updateTask(taskId: string, data: TaskUpdate): Promise<Task> {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/tasks/${taskId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.json();
+  }
+
+  async deleteTask(taskId: string): Promise<void> {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/tasks/${taskId}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  // Speech (STT/TTS)
+  async speechToText(audioBlob: Blob): Promise<string> {
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'recording.webm');
+    const response = await this.fetchWithAuth(`${this.baseUrl}/speech-to-text`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    return data.text;
+  }
+
+  async textToSpeech(text: string): Promise<Blob> {
+    const response = await this.fetchWithAuth(`${this.baseUrl}/text-to-speech`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    return await response.blob();
+  }
+
   // Admin - Cache
   async clearCache(): Promise<void> {
     const response = await this.fetchWithAuth(`${this.baseUrl}/admin/cache/clear`, { method: 'POST' });
@@ -455,6 +511,30 @@ interface ContextPreviewResponse {
   token_estimate: number;
 }
 
+// Task types
+interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  status: 'todo' | 'in_progress' | 'done';
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+interface TaskCreate {
+  title: string;
+  description?: string;
+  status?: string;
+}
+
+interface TaskUpdate {
+  title?: string;
+  description?: string;
+  status?: string;
+  sort_order?: number;
+}
+
 interface TestChatRequest {
   query: string;
   similarity_k?: number;
@@ -489,4 +569,7 @@ export type {
   ContextPreviewRequest,
   ContextPreviewResponse,
   TestChatRequest,
+  Task,
+  TaskCreate,
+  TaskUpdate,
 };

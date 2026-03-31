@@ -34,6 +34,14 @@ class Settings(BaseSettings):
     langfuse_secret_key: str = ""
     langfuse_host: str = ""
 
+    # Speech (STT/TTS)
+    whisper_model_size: str = "base"
+    whisper_language: str = "ja"
+    whisper_device: str = "cpu"
+    whisper_compute_type: str = "int8"
+    piper_model_path: str = "/app/models/piper/ja_JP-amitaro-medium.onnx"
+    piper_config_path: str = "/app/models/piper/ja_JP-amitaro-medium.onnx.json"
+
     # App
     docs_dir: str = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs")
 

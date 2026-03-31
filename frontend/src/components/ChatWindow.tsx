@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { Sparkles, FileText } from 'lucide-react';
+import { Sparkles, FileText, Volume2, Square, Loader2 } from 'lucide-react';
+import { useAudioPlayer } from '../hooks/useAudioPlayer';
 
 interface Message {
   id: string;
@@ -40,6 +41,7 @@ function SourceBadges({ sources }: { sources: string[] }) {
 
 export default function ChatWindow({ messages, loading = false }: ChatWindowProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { playingId, loadingId, play, stop } = useAudioPlayer();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -79,7 +81,26 @@ export default function ChatWindow({ messages, loading = false }: ChatWindowProp
                       <span className="inline-block w-0.5 h-4 bg-gray-400 animate-pulse ml-0.5 align-text-bottom" />
                     )}
                   </p>
-                  <SourceBadges sources={message.sources || []} />
+                  <div className="flex items-center gap-1 mt-1">
+                    <SourceBadges sources={message.sources || []} />
+                    {message.content && (
+                      <button
+                        onClick={() =>
+                          playingId === message.id ? stop() : play(message.id, message.content)
+                        }
+                        className="p-1 text-gray-400 hover:text-blue-500 rounded transition-colors"
+                        title={playingId === message.id ? '停止' : '音声で聞く'}
+                      >
+                        {loadingId === message.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : playingId === message.id ? (
+                          <Square className="w-4 h-4" />
+                        ) : (
+                          <Volume2 className="w-4 h-4" />
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

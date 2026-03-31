@@ -38,3 +38,6 @@ requests==2.31.0
 sentence-transformers==3.0.1
 torch==2.2.2
 torchvision==0.17.2
+
+# Speech (STT/TTS)
+faster-whisper==1.1.0

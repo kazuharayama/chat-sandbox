@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.config import get_settings
 from core.dependencies import init_dependencies
 from core.logging import setup_logging
-from routers import admin, chat, context_lab, documents, sessions
+from routers import admin, chat, context_lab, documents, sessions, speech, tasks
 
 
 @asynccontextmanager
@@ -32,6 +32,8 @@ app.include_router(documents.router, tags=["documents"])
 app.include_router(sessions.router)
 app.include_router(admin.router)
 app.include_router(context_lab.router)
+app.include_router(tasks.router)
+app.include_router(speech.router, tags=["speech"])
 
 
 @app.get("/")

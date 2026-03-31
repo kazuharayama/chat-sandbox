@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Send, X, FileText, Paperclip } from 'lucide-react';
+import { Plus, Send, X, FileText, Paperclip, Mic, MicOff, Loader2 } from 'lucide-react';
+import { useAudioRecorder } from '../hooks/useAudioRecorder';
+import { apiService } from '../services/api';
 
 interface MessageInputProps {
   onSendMessage: (message: string, file?: File) => void;
@@ -16,9 +18,11 @@ export default function MessageInput({
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { isRecording, startRecording, stopRecording } = useAudioRecorder();
 
   // Close menu on outside click
   useEffect(() => {
@@ -75,6 +79,29 @@ export default function MessageInput({
       setPreviewUrl(null);
     }
     e.target.value = '';
+  };
+
+  const handleMicClick = async () => {
+    if (isRecording) {
+      const blob = await stopRecording();
+      setIsTranscribing(true);
+      try {
+        const text = await apiService.speechToText(blob);
+        if (text) {
+          setMessage((prev) => (prev ? prev + ' ' + text : text));
+        }
+      } catch {
+        // Silently fail - user can retry
+      } finally {
+        setIsTranscribing(false);
+      }
+    } else {
+      try {
+        await startRecording();
+      } catch {
+        // Mic permission denied
+      }
+    }
   };
 
   const clearAttachment = () => {
@@ -151,6 +178,29 @@ export default function MessageInput({
             className="flex-1 bg-transparent px-2 py-2.5 resize-none focus:outline-none max-h-32 min-h-[40px] text-sm text-gray-900 placeholder-gray-400"
             rows={1}
           />
+
+          {/* Mic Button */}
+          <button
+            type="button"
+            onClick={handleMicClick}
+            disabled={disabled || isTranscribing}
+            className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+              isRecording
+                ? 'bg-red-500 hover:bg-red-600'
+                : isTranscribing
+                  ? 'bg-gray-200'
+                  : 'hover:bg-gray-200'
+            }`}
+            title={isRecording ? '録音停止' : isTranscribing ? '変換中...' : '音声入力'}
+          >
+            {isTranscribing ? (
+              <Loader2 className="w-5 h-5 text-gray-500 animate-spin" />
+            ) : isRecording ? (
+              <MicOff className="w-5 h-5 text-white" />
+            ) : (
+              <Mic className="w-5 h-5 text-gray-500" />
+            )}
+          </button>
 
           {/* Send Button */}
           <button

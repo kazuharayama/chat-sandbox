@@ -3,15 +3,17 @@ import Chat from './pages/Chat'
 import Documents from './pages/Documents'
 import Admin from './pages/Admin'
 import ContextLab from './pages/ContextLab'
+import Tasks from './pages/Tasks'
 import AuthGuard from './auth/AuthGuard'
 import { isAuthEnabled } from './auth/msalConfig'
 import { useMsal } from '@azure/msal-react'
 import { useAuthSetup } from './auth/useAuthSetup'
-import { MessageSquare, FileText, Settings, Activity, FlaskConical, LogOut } from 'lucide-react'
+import { MessageSquare, FileText, Settings, Activity, FlaskConical, LogOut, LayoutList } from 'lucide-react'
 
 const tabs = [
   { path: '/', icon: <MessageSquare className="w-4 h-4" />, label: 'チャット' },
   { path: '/documents', icon: <FileText className="w-4 h-4" />, label: 'ドキュメント' },
+  { path: '/tasks', icon: <LayoutList className="w-4 h-4" />, label: 'タスク' },
   { path: '/context-lab', icon: <FlaskConical className="w-4 h-4" />, label: 'Context Lab' },
   { path: '/admin', icon: <Settings className="w-4 h-4" />, label: '管理' },
 ]
@@ -85,7 +87,8 @@ function App() {
           <Routes>
             <Route path="/" element={<Chat />} />
             <Route path="/documents" element={<Documents />} />
-            <Route path="/context-lab" element={<ContextLab />} />
+            <Route path="/tasks" element={<Tasks />} />
+          <Route path="/context-lab" element={<ContextLab />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

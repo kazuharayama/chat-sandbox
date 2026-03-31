@@ -45,6 +45,13 @@ services:
       - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET:-}
       - AZURE_ALLOWED_GROUP_ID=${AZURE_ALLOWED_GROUP_ID:-}
       - AZURE_ADMIN_GROUP_ID=${AZURE_ADMIN_GROUP_ID:-}
+      # Speech (STT/TTS)
+      - WHISPER_MODEL_SIZE=${WHISPER_MODEL_SIZE:-base}
+      - WHISPER_LANGUAGE=${WHISPER_LANGUAGE:-ja}
+      - WHISPER_DEVICE=${WHISPER_DEVICE:-cpu}
+      - WHISPER_COMPUTE_TYPE=${WHISPER_COMPUTE_TYPE:-int8}
+      - PIPER_MODEL_PATH=/app/models/piper/ja_JP-amitaro-medium.onnx
+      - PIPER_CONFIG_PATH=/app/models/piper/ja_JP-amitaro-medium.onnx.json
       # PostgreSQL
       - DATABASE_URL=postgresql://chat_user:chat_pass@postgres:5432/chat_db
       - DB_HOST=postgres

@@ -1,4 +1,5 @@
-import { Configuration, LogLevel } from '@azure/msal-browser';
+import type { Configuration } from '@azure/msal-browser';
+import { LogLevel } from '@azure/msal-browser';
 
 // Entra ID settings from environment variables (set via Vite)
 const clientId = import.meta.env.VITE_AZURE_CLIENT_ID || '';

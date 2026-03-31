@@ -7,9 +7,11 @@ from repositories.chat_repository import ChatRepository
 from repositories.document_repository import DocumentRepository
 from repositories.image_repository import ImageRepository
 from repositories.vector_repository import VectorRepository
+from repositories.task_repository import TaskRepository
 from services.chat_service import ChatService
 from services.context_lab_service import ContextLabService
 from services.document_service import DocumentService
+from services.speech_service import SpeechService
 
 logger = logging.getLogger(__name__)
 
@@ -18,14 +20,16 @@ _image_repo: Optional[ImageRepository] = None
 _document_repo: Optional[DocumentRepository] = None
 _chat_repo: Optional[ChatRepository] = None
 _agent_config_repo: Optional[AgentConfigRepository] = None
+_task_repo: Optional[TaskRepository] = None
 _chat_service: Optional[ChatService] = None
 _context_lab_service: Optional[ContextLabService] = None
 _document_service: Optional[DocumentService] = None
+_speech_service: Optional[SpeechService] = None
 
 
 def init_dependencies(settings: Settings) -> None:
     """Initialize all dependencies at startup."""
-    global _vector_repo, _image_repo, _document_repo, _chat_repo, _agent_config_repo, _chat_service, _context_lab_service, _document_service
+    global _vector_repo, _image_repo, _document_repo, _chat_repo, _agent_config_repo, _task_repo, _chat_service, _context_lab_service, _document_service, _speech_service
 
     # Repositories
     try:
@@ -50,11 +54,13 @@ def init_dependencies(settings: Settings) -> None:
 
     _chat_repo = ChatRepository(settings.database_url)
     _agent_config_repo = AgentConfigRepository(settings.database_url)
+    _task_repo = TaskRepository(settings.database_url)
 
     # Services
     _chat_service = ChatService(settings, _vector_repo, _image_repo, _chat_repo, _agent_config_repo)
     _context_lab_service = ContextLabService(settings, _vector_repo, _image_repo, _agent_config_repo)
     _document_service = DocumentService(_document_repo, _vector_repo, _image_repo)
+    _speech_service = SpeechService(settings)
 
     logger.info("All dependencies initialized")
 
@@ -71,9 +77,17 @@ def get_chat_repository() -> ChatRepository:
     return _chat_repo
 
 
+def get_task_repository() -> TaskRepository:
+    return _task_repo
+
+
 def get_context_lab_service() -> ContextLabService:
     return _context_lab_service
 
 
 def get_agent_config_repository() -> AgentConfigRepository:
     return _agent_config_repo
+
+
+def get_speech_service() -> SpeechService:
+    return _speech_service

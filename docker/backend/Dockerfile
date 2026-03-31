@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     tesseract-ocr \
     tesseract-ocr-jpn \
+    ffmpeg \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # 依存関係ファイルをコピー
@@ -15,6 +17,17 @@ COPY requirements.txt .
 
 # 共通の依存関係をインストール
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Piper TTS バイナリとモデルをダウンロード
+RUN pip install --no-cache-dir piper-tts==1.2.0 && \
+    mkdir -p /app/models/piper && \
+    wget -q -O /app/models/piper/ja_JP-amitaro-medium.onnx \
+      "https://huggingface.co/rhasspy/piper-voices/resolve/main/ja/ja_JP/amitaro/medium/ja_JP-amitaro-medium.onnx" && \
+    wget -q -O /app/models/piper/ja_JP-amitaro-medium.onnx.json \
+      "https://huggingface.co/rhasspy/piper-voices/resolve/main/ja/ja_JP/amitaro/medium/ja_JP-amitaro-medium.onnx.json"
+
+# faster-whisper モデルをプリダウンロード
+RUN python -c "from faster_whisper import WhisperModel; WhisperModel('base', device='cpu', compute_type='int8')"
 
 # 開発環境用ステージ
 FROM base AS development
