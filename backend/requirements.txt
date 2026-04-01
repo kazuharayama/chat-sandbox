@@ -1,46 +1,44 @@
 # Web framework
 fastapi==0.104.1
 uvicorn==0.24.0
-pydantic==2.4.2
-pydantic-settings==2.1.0
+pydantic>=2.4.2
+pydantic-settings>=2.1.0
 python-multipart==0.0.6
 python-dotenv==1.0.0
 
-# LangChain
-langchain==0.1.20
-langchain-openai==0.0.8
-langchain-core==0.1.52
-langchain-community==0.0.38
+# LangChain + LangGraph
+langchain>=0.3.0
+langchain-openai>=0.2.0
+langchain-core>=0.3.0
+langchain-community>=0.3.0
+langgraph>=0.2.0
 
 # PostgreSQL + pgvector
-langchain-postgres==0.0.6
-psycopg2-binary==2.9.7
-psycopg[binary]==3.1.18
-sqlalchemy==2.0.23
-
-# LangGraph - Agentic RAG
-langgraph>=0.2.0
+langchain-postgres>=0.0.12
+psycopg2-binary>=2.9.7
+psycopg[binary]>=3.1.18
+sqlalchemy>=2.0.23
 
 # Langfuse - LLMトレーシング・可視化
 langfuse>=3.0.0
 
 # ドキュメント処理
-unstructured==0.10.30
-pdf2image==1.17.0
-pytesseract==0.3.10
-Pillow==10.1.0
+unstructured>=0.10.30
+pdf2image>=1.17.0
+pytesseract>=0.3.10
+Pillow>=10.1.0
 
 # Azure Blob Storage
-azure-storage-blob==12.19.0
+azure-storage-blob>=12.19.0
 
 # Authentication
-PyJWT[crypto]==2.8.0
-requests==2.31.0
+PyJWT[crypto]>=2.8.0
+requests>=2.31.0
 
 # マルチモーダル (CLIP)
-sentence-transformers==3.0.1
-torch==2.2.2
-torchvision==0.17.2
+sentence-transformers>=3.0.1
+torch>=2.2.2
+torchvision>=0.17.2
 
 # Speech (STT/TTS)
-faster-whisper==1.1.0
+faster-whisper>=1.1.0
