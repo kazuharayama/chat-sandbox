@@ -5,11 +5,17 @@ import ChatWindow from '../components/ChatWindow';
 import MessageInput from '../components/MessageInput';
 import { MessageSquare, Plus, Trash2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
+export interface StepInfo {
+  step: string;
+  detail: string;
+}
+
 export interface Message {
   id: string;
   content: string;
   sender: 'user' | 'assistant';
   timestamp: Date;
+  steps?: StepInfo[];
   sources?: string[];
 }
 
@@ -128,7 +134,7 @@ export default function Chat() {
         // Add empty bot message for streaming
         setMessages((prev) => [
           ...prev,
-          { id: botId, content: '', sender: 'assistant', timestamp: new Date(), sources: [] },
+          { id: botId, content: '', sender: 'assistant', timestamp: new Date(), sources: [], steps: [] },
         ]);
 
         await apiService.sendMessageStream(
@@ -156,6 +162,13 @@ export default function Chat() {
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === botId ? { ...m, sources } : m
+                )
+              );
+            },
+            onStep: (step, detail) => {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === botId ? { ...m, steps: [...(m.steps || []), { step, detail }] } : m
                 )
               );
             },

@@ -18,6 +18,9 @@ psycopg2-binary==2.9.7
 psycopg[binary]==3.1.18
 sqlalchemy==2.0.23
 
+# LangGraph - Agentic RAG
+langgraph>=0.2.0
+
 # Langfuse - LLMトレーシング・可視化
 langfuse>=3.0.0
 

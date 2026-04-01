@@ -148,6 +148,61 @@ class AgentConfigRepository:
                     ('chat_documents', 'pgvector', 'chat_documents', '{"similarity_k": 3}'),
                     ('image_documents', 'pgvector', 'image_documents', '{"similarity_k": 2}')
                 """))
+                # Search Agent
+                conn.execute(text("""
+                    INSERT INTO agent_definitions (name, display_name, description, agent_type, llm_model_id, is_enabled)
+                    VALUES ('search_agent', '検索エージェント', 'Plan→Retrieve→Evaluate→Answerのマルチステップ検索', 'search',
+                            (SELECT id FROM llm_models WHERE name = 'gpt-4o'), true)
+                """))
+                conn.execute(text("""
+                    INSERT INTO prompt_templates (agent_id, prompt_key, content, version, is_active) VALUES
+                    ((SELECT id FROM agent_definitions WHERE name = 'search_agent'), 'plan_prompt',
+                     'ユーザーの質問を分析し、効果的な検索クエリに分解してください。
+質問が単純なら1つ、複雑なら2-3個のサブクエリを生成してください。
+
+質問: {query}
+
+JSON形式で回答してください:
+{{"sub_queries": ["クエリ1", "クエリ2"]}}', 1, true),
+                    ((SELECT id FROM agent_definitions WHERE name = 'search_agent'), 'evaluate_prompt',
+                     '以下の検索結果がユーザーの質問に十分な情報を含んでいるか判定してください。
+
+質問: {query}
+検索結果:
+{context}
+
+JSON形式で回答してください:
+{{"sufficient": true/false, "reason": "判定理由"}}', 1, true),
+                    ((SELECT id FROM agent_definitions WHERE name = 'search_agent'), 'answer_prompt',
+                     '以下の情報を基に、ユーザーの質問に{language}で回答してください。
+情報が不足している場合は、その旨を伝えてください。
+
+関連ドキュメント:
+{context}
+
+質問: {query}', 1, true)
+                """))
+                # Supervisor routing rule
+                conn.execute(text("""
+                    INSERT INTO routing_rules (name, description, source_agent_id, condition_prompt, routes, is_enabled)
+                    VALUES ('default_routing', 'デフォルトのルーティングルール',
+                            (SELECT id FROM agent_definitions WHERE name = 'assistant'),
+                            'ユーザーの質問を分析し、最適なエージェントを選択してください。
+
+選択肢:
+- "search": 複雑な質問、比較、要約、ドキュメント検索が必要な質問
+- "chat": 雑談、挨拶、簡単な質問、一般知識の質問
+
+質問: {query}
+
+JSON形式で回答してください:
+{{"agent": "search" or "chat", "reason": "選択理由"}}',
+                            '{"search": "search_agent", "chat": "assistant"}', true)
+                """))
+                conn.execute(text("""
+                    INSERT INTO agent_parameters (agent_id, param_key, param_value, param_type, description) VALUES
+                    ((SELECT id FROM agent_definitions WHERE name = 'search_agent'), 'max_iterations', '2', 'int', '最大再検索回数')
+                """))
             conn.commit()
 
     # --- LLM Models ---

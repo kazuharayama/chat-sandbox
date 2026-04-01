@@ -1,6 +1,11 @@
 import { useEffect, useRef } from 'react';
-import { Sparkles, FileText, Volume2, Square, Loader2 } from 'lucide-react';
+import { Sparkles, FileText, Volume2, Square, Loader2, Search, Brain, CheckCircle, MessageSquare } from 'lucide-react';
 import { useAudioPlayer } from '../hooks/useAudioPlayer';
+
+interface StepInfo {
+  step: string;
+  detail: string;
+}
 
 interface Message {
   id: string;
@@ -8,7 +13,29 @@ interface Message {
   sender: 'user' | 'assistant';
   timestamp: Date;
   sources?: string[];
+  steps?: StepInfo[];
   fileName?: string;
+}
+
+const STEP_ICONS: Record<string, React.ReactNode> = {
+  plan: <Brain className="w-3 h-3" />,
+  retrieve: <Search className="w-3 h-3" />,
+  evaluate: <CheckCircle className="w-3 h-3" />,
+  answer: <MessageSquare className="w-3 h-3" />,
+};
+
+function StepIndicator({ steps }: { steps: StepInfo[] }) {
+  if (!steps || steps.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5 mb-2">
+      {steps.map((s, i) => (
+        <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-xs">
+          {STEP_ICONS[s.step] || <Sparkles className="w-3 h-3" />}
+          {s.detail}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 interface ChatWindowProps {
@@ -74,6 +101,7 @@ export default function ChatWindow({ messages, loading = false }: ChatWindowProp
                   <Sparkles className="w-4 h-4 text-blue-500" />
                 </div>
                 <div className="flex-1 min-w-0">
+                  <StepIndicator steps={message.steps || []} />
                   <p className="text-sm leading-relaxed text-gray-800 whitespace-pre-wrap">
                     {message.content}
                     {/* Blinking cursor while streaming */}

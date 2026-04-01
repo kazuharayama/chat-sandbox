@@ -39,6 +39,7 @@ interface StreamCallbacks {
   onToken: (token: string) => void;
   onSources: (sources: string[]) => void;
   onSession?: (sessionId: string) => void;
+  onStep?: (step: string, detail: string) => void;
   onDone: () => void;
   onError: (error: Error) => void;
 }
@@ -135,6 +136,8 @@ class ApiService {
             callbacks.onSources(data.sources);
           } else if (data.type === 'session') {
             callbacks.onSession?.(data.session_id);
+          } else if (data.type === 'step') {
+            callbacks.onStep?.(data.step, data.detail);
           } else if (data.type === 'done') {
             callbacks.onDone();
           }

@@ -12,6 +12,8 @@ from repositories.chat_repository import ChatRepository
 from repositories.image_repository import ImageRepository
 from repositories.vector_repository import VectorRepository
 from services.llm_factory import get_or_create_llm
+from services.supervisor import determine_agent_type
+from services.search_agent import run_search_agent_stream
 
 logger = logging.getLogger(__name__)
 
@@ -193,21 +195,59 @@ class ChatService:
         if self.chat_repo and session_id:
             self.chat_repo.add_message(session_id, "user", request.message)
 
-        messages, sources = self._build_messages(request, session_id)
-
         yield f"data: {json.dumps({'type': 'session', 'session_id': session_id}, ensure_ascii=False)}\n\n"
 
-        if sources:
-            yield f"data: {json.dumps({'type': 'sources', 'sources': sources}, ensure_ascii=False)}\n\n"
-
         llm = self._get_llm()
-        full_response = ""
-        config = {"callbacks": [self.langfuse_handler]} if self.langfuse_handler else {}
-        async for chunk in llm.astream(messages, config=config):
-            content = chunk.content
-            if content:
-                full_response += content
-                yield f"data: {json.dumps({'type': 'token', 'content': content}, ensure_ascii=False)}\n\n"
+
+        # Supervisor: determine agent type
+        agent_type = "chat"
+        if request.use_rag and self.vector_repo:
+            try:
+                agent_type = determine_agent_type(llm, request.message, self.agent_config_repo)
+            except Exception as e:
+                logger.warning("Supervisor failed, defaulting to chat: %s", e)
+
+        if agent_type == "search" and self.vector_repo:
+            # Search Agent path
+            text_config = self._get_knowledge_config("chat_documents")
+            similarity_k = text_config.get("similarity_k", 3)
+
+            full_response = ""
+            sources = []
+            async for event in run_search_agent_stream(
+                llm=llm,
+                query=request.message,
+                vector_repo=self.vector_repo,
+                image_repo=self.image_repo,
+                agent_config_repo=self.agent_config_repo,
+                similarity_k=similarity_k,
+                language=request.language,
+            ):
+                yield event
+                # Track response for saving
+                if event.startswith("data: "):
+                    try:
+                        data = json.loads(event[6:].strip())
+                        if data.get("type") == "token":
+                            full_response += data.get("content", "")
+                        elif data.get("type") == "sources":
+                            sources = data.get("sources", [])
+                    except (json.JSONDecodeError, ValueError):
+                        pass
+        else:
+            # Standard chat path
+            messages, sources = self._build_messages(request, session_id)
+
+            if sources:
+                yield f"data: {json.dumps({'type': 'sources', 'sources': sources}, ensure_ascii=False)}\n\n"
+
+            full_response = ""
+            config = {"callbacks": [self.langfuse_handler]} if self.langfuse_handler else {}
+            async for chunk in llm.astream(messages, config=config):
+                content = chunk.content
+                if content:
+                    full_response += content
+                    yield f"data: {json.dumps({'type': 'token', 'content': content}, ensure_ascii=False)}\n\n"
 
         if self.chat_repo and session_id:
             self.chat_repo.add_message(session_id, "assistant", full_response, sources)
