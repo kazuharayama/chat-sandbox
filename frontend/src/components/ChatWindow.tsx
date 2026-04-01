@@ -5,7 +5,7 @@ import { useAudioPlayer } from '../hooks/useAudioPlayer';
 interface Message {
   id: string;
   content: string;
-  sender: 'user' | 'bot';
+  sender: 'user' | 'assistant';
   timestamp: Date;
   sources?: string[];
   fileName?: string;
@@ -107,7 +107,7 @@ export default function ChatWindow({ messages, loading = false }: ChatWindowProp
           </div>
         ))}
 
-        {loading && messages[messages.length - 1]?.sender !== 'bot' && (
+        {loading && messages[messages.length - 1]?.sender !== 'assistant' && (
           <div className="flex gap-3">
             <div className="flex-shrink-0 w-7 h-7 bg-white border border-gray-200 rounded-full flex items-center justify-center mt-0.5">
               <Sparkles className="w-4 h-4 text-blue-500" />

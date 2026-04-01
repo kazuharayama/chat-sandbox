@@ -15,7 +15,7 @@ erDiagram
     chat_messages {
         UUID id PK
         UUID session_id FK
-        VARCHAR role "user | bot"
+        VARCHAR role "user | assistant"
         TEXT content
         JSONB sources "参照元ドキュメント"
         TIMESTAMPTZ created_at
@@ -111,6 +111,17 @@ erDiagram
         TIMESTAMPTZ updated_at
     }
 
+    %% === タスク管理系 ===
+    tasks {
+        UUID id PK
+        VARCHAR title
+        TEXT description
+        VARCHAR status "todo | in_progress | done"
+        INT sort_order
+        TIMESTAMPTZ created_at
+        TIMESTAMPTZ updated_at
+    }
+
     llm_models ||--o{ agent_definitions : "used by"
     agent_definitions ||--o{ prompt_templates : "has"
     agent_definitions ||--o{ agent_parameters : "has"
@@ -126,6 +137,13 @@ erDiagram
 |---------|------|----------------|
 | `chat_sessions` | 会話セッション | 会話作成ごと |
 | `chat_messages` | メッセージ履歴 (user/bot) | メッセージごと |
+
+### タスク管理系
+プロジェクトのタスクをカンバンボードで管理。
+
+| テーブル | 説明 | レコード増加速度 |
+|---------|------|----------------|
+| `tasks` | タスク (TODO/進行中/完了) | タスク作成ごと |
 
 ### ベクトルデータ (LangChain管理)
 LangChainのPGVectorが自動管理するテーブル。直接操作しない。

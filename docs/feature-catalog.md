@@ -20,8 +20,10 @@
 | ソース表示 | 実装済み | 回答の参照元ドキュメントをバッジ表示 |
 | チャットからファイルアップロード | 実装済み | チャット画面で直接ファイルを添付して質問 |
 | 多言語対応 | 実装済み | 応答言語の切り替え (デフォルト: 日本語) |
+| GPT-4o Vision画像理解 | 実装済み | 画像をbase64でLLMに送信し内容を理解・回答 |
+| 音声入力 (STT) | 実装済み | マイクボタンでWhisperによる音声認識 → テキスト変換 |
+| 音声出力 (TTS) | 実装済み | Piperによるテキスト → 音声合成 (日本語) |
 | 検索エージェント (Agentic RAG) | 未実装 | Plan → Retrieve → Evaluate → Answer のマルチステップ検索 |
-| 音声対話 (WebRTC) | 未実装 | マイク入力 → STT → RAG → TTS → 音声出力 |
 
 ## 2. セッション管理
 
@@ -30,7 +32,7 @@
 | セッション作成・一覧 | 実装済み | 会話をセッション単位で管理 |
 | セッション削除 | 実装済み | 不要な会話を削除 (メッセージも連動削除) |
 | タイトル自動設定 | 実装済み | 最初のメッセージからセッションタイトルを自動生成 |
-| サイドバー | 実装済み | Gemini風のセッション切り替えUI |
+| サイドバー (開閉式) | 実装済み | Gemini風のセッション切り替えUI。開閉ボタン付き |
 
 ## 3. ドキュメント管理
 
@@ -38,14 +40,21 @@
 |------|------|------|
 | ドキュメントアップロード | 実装済み | PDF, TXT, Markdown, CSV, 画像 (PNG/JPG等) に対応 |
 | Azure Blob Storage永続化 | 実装済み | アップロードファイルをBlob Storageに保存 |
-| テキストベクトル化 | 実装済み | LangChainローダー → チャンキング → Azure OpenAI Embedding → pgvector |
+| テキストベクトル化 | 実装済み | LangChainローダー → チャンキング (1000/200) → Azure OpenAI Embedding → pgvector |
 | 画像ベクトル化 (CLIP) | 実装済み | CLIP ViT-B-32でマルチモーダル検索対応 |
 | ドキュメント削除 | 実装済み | Blob Storage + ベクトルストアの両方から削除 |
 | グリッド/リスト表示切替 | 実装済み | ドキュメント一覧の表示モード切り替え |
-| GPT-4o Vision画像理解 | 未実装 | 画像内容をテキスト化してテキスト検索にも対応 |
 | 定期バッチベクトル化 | 未実装 | Blob Storageの新規ファイルを自動ベクトル化 |
 
-## 4. エージェント設定
+## 4. タスク管理
+
+| 機能 | 状態 | 説明 |
+|------|------|------|
+| カンバンボード | 実装済み | TODO / 進行中 / 完了 の3カラム |
+| タスクCRUD | 実装済み | 作成・編集・削除 |
+| ドラッグ&ドロップ | 実装済み | カラム間のステータス変更 |
+
+## 5. エージェント設定
 
 | 機能 | 状態 | 説明 |
 |------|------|------|
@@ -56,61 +65,66 @@
 | 知識ソース管理 (DB) | 実装済み | コレクション名・similarity_k等のベクトル検索設定 |
 | 管理API (CRUD) | 実装済み | `/admin/*` エンドポイントで全設定の読み書き |
 | 管理画面 (プロンプト編集) | 実装済み | プロンプトの編集・バージョン履歴・ロールバックUI |
-| 管理画面 (モデル/ソース編集) | 未実装 | temperature, similarity_k等の編集UI |
-| ChatServiceのDB動的読み込み | 一部実装 | プロンプトはDB読み込み済み。LLMパラメータ・similarity_kはハードコード |
+| 管理画面 (モデル編集) | 実装済み | temperature, max_tokensの編集。デフォルトモデル切り替え |
+| 管理画面 (モデル追加) | 実装済み | プロバイダー選択 (Azure OpenAI/Ollama/vLLM) + パラメータ設定 |
+| 管理画面 (ナレッジソース編集) | 実装済み | similarity_kのスライダー編集 |
+| ChatServiceのDB動的読み込み | 実装済み | LLMパラメータ・similarity_kをDBから読み込み。TTL 60秒キャッシュ |
+| LLMキャッシュクリア | 実装済み | `/admin/cache/clear` で手動キャッシュクリア |
 
-## 5. LLMプロバイダー
+## 6. LLMプロバイダー
 
 | 機能 | 状態 | 説明 |
 |------|------|------|
-| Azure OpenAI (gpt-4o) | 実装済み | AzureChatOpenAIで接続 |
+| Azure OpenAI (gpt-4o) | 実装済み | AzureChatOpenAIで接続。デフォルトプロバイダー |
 | Azure OpenAI Embedding | 実装済み | text-embedding-ada-002でテキストベクトル化 |
-| Ollama (ローカルLLM) | 未実装 | GPU/CPU両対応。Docker Composeに統合予定 |
-| vLLM (高スループット) | 未実装 | GPU必須。本番高負荷向け |
-| LLMプロバイダー切り替え | 未実装 | 管理画面からAzure OpenAI / Ollama / vLLMを切り替え |
-| GPU自動検出 | 未実装 | `scripts/start.sh` でGPU有無を検出し、docker compose profilesで切り替え |
+| Ollama (ローカルLLM) | 実装済み | GPU/CPU両対応。Docker Compose profilesで起動 |
+| vLLM (高スループット) | 実装済み | GPU必須。OpenAI互換APIで接続 |
+| LLMプロバイダー切り替え | 実装済み | 管理画面からAzure OpenAI / Ollama / vLLMを切り替え |
+| GPU自動検出 | 実装済み | `scripts/start.sh` でGPU有無を検出し、docker compose profilesで切り替え |
+| LLMファクトリ | 実装済み | `llm_factory.py` でproviderに応じたインスタンス生成。TTLキャッシュ付き |
 
-## 6. コンテキストエンジニアリング
+## 7. コンテキストエンジニアリング
 
 | 機能 | 状態 | 説明 |
 |------|------|------|
-| Context Lab (検索プレビュー) | 未実装 | クエリに対する取得チャンク + スコアをプレビュー |
-| Context Lab (コンテキストプレビュー) | 未実装 | LLMに渡される最終プロンプト全文を表示 |
-| Context Lab (テスト実行) | 未実装 | パラメータを一時上書きしてサンドボックスチャット |
+| Context Lab (検索プレビュー) | 実装済み | クエリに対する取得チャンク + スコアをプレビュー |
+| Context Lab (コンテキストプレビュー) | 実装済み | LLMに渡される最終プロンプト全文を表示 |
+| Context Lab (テスト実行) | 実装済み | パラメータを一時上書きしてSSEストリーミングでテスト |
 | Context Lab (比較モード) | 未実装 | 2つのパラメータセットの結果を横並び比較 |
 | 評価指標 (Recall@k, MRR) | 未実装 | 評価データセットによる検索精度の定量評価 |
 | チャンク戦略の実験 | 未実装 | chunk_size/overlapの組み合わせ別に精度比較 |
 
-## 7. 監視・トレーシング
+## 8. 監視・トレーシング
 
 | 機能 | 状態 | 説明 |
 |------|------|------|
 | Langfuse統合 | 実装済み | LLM呼び出しの自動トレーシング |
 | Langfuse UI | 実装済み | セルフホスト (localhost:3000) でトレース確認 |
-| WebRTCイベントログ | 未実装 | ICE/offer/answer/接続状態をDBに記録 |
-| 音声対話E2Eトレース | 未実装 | WebRTC → STT → LLM → TTS をLangfuseで一括追跡 |
 | コスト・レイテンシ可視化 | 未実装 | Langfuseダッシュボードでの運用モニタリング |
 
-## 8. 認証・セキュリティ
+## 9. 認証・セキュリティ
 
 | 機能 | 状態 | 説明 |
 |------|------|------|
-| Entra ID トークン検証 | 一部実装 | `core/auth.py` 実装済み。グレースフルスキップ付き |
-| グループベースアクセス制御 | 一部実装 | `/chat` エンドポイントのみ適用 |
-| フロントエンド MSAL統合 | 未実装 | Microsoftログイン + トークン自動付与 |
-| 管理画面のアクセス制限 | 未実装 | adminグループによる `/admin/*` の保護 |
+| Entra ID トークン検証 | 実装済み | `core/auth.py` でJWT検証。グレースフルスキップ付き |
+| グループベースアクセス制御 | 実装済み | 全エンドポイントに `require_group_member` 適用 |
+| 管理画面のアクセス制限 | 実装済み | adminグループによる `/admin/*` の `require_admin` 保護 |
+| フロントエンド MSAL統合 | 実装済み | AuthGuard + トークン自動取得 + Bearer自動付与 |
+| Terraform Entra ID | 実装済み | アプリ登録・グループ・シークレットを自動プロビジョニング |
 | ユーザー単位のデータ分離 | 未実装 | セッション・ドキュメントのユーザー紐づけ |
 
-## 9. インフラ
+## 10. インフラ
 
 | 機能 | 状態 | 説明 |
 |------|------|------|
 | Docker Compose (全サービス) | 実装済み | `docker compose up` でアプリ + Langfuse一式起動 |
 | Terraform (Azure Storage) | 実装済み | Storage Accountのプロビジョニング |
+| Terraform (Entra ID) | 実装済み | アプリ登録 + セキュリティグループの自動作成 |
 | Nginx リバースプロキシ | 実装済み | 本番模擬 (localhost:8080) |
-| Docker Compose profiles (GPU/CPU) | 未実装 | `--profile gpu` / `--profile cpu` で切り替え |
+| Docker Compose profiles (GPU/CPU) | 実装済み | `--profile gpu` / `--profile cpu` でOllama/vLLM切り替え |
+| GPU自動検出スクリプト | 実装済み | `scripts/start.sh` でnvidia-smi + Dockerランタイム検出 |
+| Swagger UI | 実装済み | FastAPI標準 (localhost:8000/docs) |
 | Azure Key Vault統合 | 将来検討 | 現在は `.env` で管理。本番ではKey Vaultに移行予定 |
-| Azure Container Appsデプロイ | 対象外 | 将来検討 |
 
 ---
 
@@ -132,3 +146,4 @@ Frontend (React 19) → Backend (FastAPI) → PostgreSQL (pgvector)
 - [PRD (プロダクト要件定義書)](PRD.md)
 - [要件定義書 (ロードマップ)](requirements/README.md)
 - [アーキテクチャ・フロー図](architecture-flow.md)
+- [ER図](er-diagram.md)

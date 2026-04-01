@@ -30,7 +30,7 @@ class ChatRepository:
                 CREATE TABLE IF NOT EXISTS chat_messages (
                     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                     session_id UUID NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
-                    role VARCHAR(10) NOT NULL CHECK (role IN ('user', 'bot')),
+                    role VARCHAR(10) NOT NULL CHECK (role IN ('user', 'assistant')),
                     content TEXT NOT NULL,
                     sources JSONB DEFAULT '[]',
                     created_at TIMESTAMPTZ NOT NULL DEFAULT now()

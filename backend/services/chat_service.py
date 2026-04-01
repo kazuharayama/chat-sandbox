@@ -126,7 +126,7 @@ class ChatService:
         messages = self.chat_repo.get_messages(session_id)
         recent = messages[-(MAX_HISTORY_MESSAGES + 1):-1] if len(messages) > 1 else []
         return [
-            {"role": "user" if m.role == "user" else "assistant", "content": m.content}
+            {"role": m.role, "content": m.content}
             for m in recent
         ]
 
@@ -181,7 +181,7 @@ class ChatService:
         response = llm.invoke(messages, config=config).content
 
         if self.chat_repo and session_id:
-            self.chat_repo.add_message(session_id, "bot", response, sources)
+            self.chat_repo.add_message(session_id, "assistant", response, sources)
             if not request.session_id:
                 self.chat_repo.update_session_title(session_id, request.message[:50])
 
@@ -210,7 +210,7 @@ class ChatService:
                 yield f"data: {json.dumps({'type': 'token', 'content': content}, ensure_ascii=False)}\n\n"
 
         if self.chat_repo and session_id:
-            self.chat_repo.add_message(session_id, "bot", full_response, sources)
+            self.chat_repo.add_message(session_id, "assistant", full_response, sources)
             if not request.session_id:
                 self.chat_repo.update_session_title(session_id, request.message[:50])
 

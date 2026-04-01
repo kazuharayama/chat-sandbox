@@ -409,7 +409,7 @@ interface Session {
 interface SessionMessage {
   id: string;
   session_id: string;
-  role: 'user' | 'bot';
+  role: 'user' | 'assistant';
   content: string;
   sources: string[];
   created_at: string;

@@ -51,16 +51,19 @@ chat-sandbox/
 │   │   ├── sessions.py       # セッション管理
 │   │   ├── admin.py          # 管理API (モデル/プロンプト/ナレッジソース)
 │   │   ├── context_lab.py    # Context Lab API (検索プレビュー/テスト実行)
-│   │   └── speech.py         # 音声認識（スタブ）
+│   │   ├── tasks.py          # タスク管理 (カンバンボードCRUD)
+│   │   └── speech.py         # 音声 (STT: Whisper, TTS: Piper)
 │   ├── services/              # ビジネスロジック
 │   │   ├── chat_service.py   # RAGチャット (DB動的読み込み)
 │   │   ├── context_lab_service.py  # Context Lab (検索/コンテキスト/テスト)
 │   │   ├── document_service.py     # ドキュメント処理
+│   │   ├── speech_service.py       # STT (Whisper) + TTS (Piper)
 │   │   └── llm_factory.py    # LLMプロバイダーファクトリ (Azure/Ollama/vLLM)
 │   ├── repositories/          # データアクセス
 │   │   ├── vector_repository.py     # pgvector (テキスト)
 │   │   ├── image_repository.py      # pgvector (CLIP画像)
 │   │   ├── chat_repository.py       # チャット履歴
+│   │   ├── task_repository.py       # タスク管理
 │   │   ├── document_repository.py   # Azure Blob Storage
 │   │   └── agent_config_repository.py  # エージェント設定DB
 │   ├── infrastructure/        # 外部サービス接続
@@ -73,14 +76,18 @@ chat-sandbox/
 │   └── src/
 │       ├── App.tsx            # ルーティング (チャット/ドキュメント/Context Lab/管理)
 │       ├── pages/
-│       │   ├── Chat.tsx       # チャット画面 (Vision対応、サイドバー開閉式)
+│       │   ├── Chat.tsx       # チャット画面 (Vision対応、サイドバー開閉式、音声入力)
 │       │   ├── Documents.tsx  # ドキュメント管理
+│       │   ├── Tasks.tsx      # タスク管理 (カンバンボード)
 │       │   ├── ContextLab.tsx # Context Lab (RAGパラメータ実験)
 │       │   └── Admin.tsx      # 管理画面 (モデル/プロンプト/ナレッジソース)
 │       ├── auth/
 │       │   ├── msalConfig.ts  # MSAL設定 (Entra ID)
 │       │   ├── AuthGuard.tsx  # 認証ガード (未設定時はスキップ)
 │       │   └── useAuthSetup.ts # トークン自動取得hook
+│       ├── hooks/
+│       │   ├── useAudioRecorder.ts  # マイク録音 (WebM/MP4)
+│       │   └── useAudioPlayer.ts    # TTS音声再生
 │       ├── components/
 │       │   ├── ChatWindow.tsx
 │       │   ├── MessageInput.tsx
@@ -202,6 +209,20 @@ docker compose down -v && docker compose up -d
 | PUT | `/admin/knowledge-sources/{id}` | ナレッジソース更新 |
 | POST | `/admin/cache/clear` | LLMキャッシュクリア |
 
+### タスク管理
+| メソッド | パス | 説明 |
+|---------|------|------|
+| GET | `/tasks` | タスク一覧 (?status=todo でフィルタ可) |
+| POST | `/tasks` | タスク作成 |
+| PUT | `/tasks/{id}` | タスク更新 (タイトル/ステータス/並び順) |
+| DELETE | `/tasks/{id}` | タスク削除 |
+
+### 音声
+| メソッド | パス | 説明 |
+|---------|------|------|
+| POST | `/speech-to-text` | 音声ファイル → テキスト変換 (Whisper) |
+| POST | `/text-to-speech` | テキスト → 音声合成 (Piper, WAV) |
+
 ### Context Lab
 | メソッド | パス | 説明 |
 |---------|------|------|
@@ -248,6 +269,7 @@ Password: chat_pass
 
 ### テーブル構成
 - **チャット系**: `chat_sessions`, `chat_messages`
+- **タスク管理**: `tasks`
 - **ベクトル系** (LangChain管理): `langchain_pg_collection`, `langchain_pg_embedding`
 - **エージェント設定系**: `llm_models`, `agent_definitions`, `prompt_templates`, `agent_parameters`, `routing_rules`, `knowledge_sources`
 

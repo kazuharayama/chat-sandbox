@@ -16,28 +16,30 @@
 | Step 1: RAGの基本 | 完了 | レイヤードアーキテクチャ、Azure OpenAI、pgvector |
 | Step 2: UX改善 | 完了 | SSEストリーミング、セッション管理、Gemini風UI |
 | Step 3: マルチモーダル + Azure | 完了 | CLIP、Azure Blob Storage、Terraform |
-| Step 4: エージェント設定基盤 | **一部完了** | DB + Admin API済、動的読み込み・管理画面UI未完 |
-| Step 5: 認証 | 未着手 | auth.py実装済みだが未統合 |
+| Step 4: エージェント設定基盤 | **完了** | DB動的読み込み、管理画面UI (モデル/ナレッジソース編集)、LLMプロバイダー切替 |
+| Step 5: 認証 | **完了** | Entra ID + MSAL + Terraform。全エンドポイント認証適用 |
+| Step 5.5: 音声 (STT/TTS) | **完了** | Whisper (STT) + Piper (TTS)。マイクボタンUI |
+| Step 5.5: タスク管理 | **完了** | カンバンボード (TODO/進行中/完了) |
+| Step 5.5: Vision | **完了** | GPT-4o Vision (画像base64送信) |
 | Step 6: マルチエージェント | 未着手 | |
 | Step 7: 精度改善 | 未着手 | |
 
 ### 既知のギャップ
 
-- `ChatService` が LLMパラメータ (temperature, max_tokens) を Settings からハードコードで初期化しており、DBの `llm_models` テーブルの値を使用していない
-- `ChatService._retrieve()` の `k=3` がハードコード。`knowledge_sources.config.similarity_k` を読んでいない
-- 管理画面フロントエンドはプロンプト編集のみ。モデル・ナレッジソース・パラメータの編集UIなし
-- Admin.tsx が `apiService` を使わず直接 `fetch` している
+- chunk_size (1000) / chunk_overlap (200) がハードコード。管理画面から変更不可
+- ユーザー単位のデータ分離が未実装 (セッション・ドキュメントのユーザー紐づけなし)
+- テスト (pytest / Vitest) がゼロ
 
 ## 3. フィーチャー一覧
 
-| ID | フィーチャー名 | 優先度 | 複雑度 | 依存 | 詳細 |
-|----|---------------|--------|--------|------|------|
-| F0 | エージェント設定基盤の完成 | P0 (前提) | M | なし | [F0-agent-config.md](F0-agent-config.md) |
-| FA | Context Engineering Lab | P1 | L | F0 | [FA-context-lab.md](FA-context-lab.md) |
-| FB | Search Agent (Agentic RAG) | P2 | XL | F0, FA | [FB-search-agent.md](FB-search-agent.md) |
-| FC | WebRTC Voice対話 | P2 | XL | なし | [FC-voice.md](FC-voice.md) |
-| FD | 認証統合 (Entra ID) | P1 | S | なし | [FD-auth.md](FD-auth.md) |
-| FE | 精度改善・運用基盤 | P2 | L | F0, FA | [FE-accuracy.md](FE-accuracy.md) |
+| ID | フィーチャー名 | 優先度 | 複雑度 | 依存 | 状態 | 詳細 |
+|----|---------------|--------|--------|------|------|------|
+| F0 | エージェント設定基盤の完成 | P0 (前提) | M | なし | **完了** | [F0-agent-config.md](F0-agent-config.md) |
+| FA | Context Engineering Lab | P1 | L | F0 | **完了** | [FA-context-lab.md](FA-context-lab.md) |
+| FB | Search Agent (Agentic RAG) | P2 | XL | F0, FA | 未着手 | [FB-search-agent.md](FB-search-agent.md) |
+| FC | 音声対話 (STT/TTS) | P2 | XL | なし | **完了** (Whisper+Piper) | [FC-voice.md](FC-voice.md) |
+| FD | 認証統合 (Entra ID) | P1 | S | なし | **完了** | [FD-auth.md](FD-auth.md) |
+| FE | 精度改善・運用基盤 | P2 | L | F0, FA | 未着手 | [FE-accuracy.md](FE-accuracy.md) |
 
 **複雑度の目安**: S=数日, M=1週間, L=2-3週間, XL=3-4週間
 

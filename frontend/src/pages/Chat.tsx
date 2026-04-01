@@ -8,7 +8,7 @@ import { MessageSquare, Plus, Trash2, PanelLeftClose, PanelLeftOpen } from 'luci
 export interface Message {
   id: string;
   content: string;
-  sender: 'user' | 'bot';
+  sender: 'user' | 'assistant';
   timestamp: Date;
   sources?: string[];
 }
@@ -73,7 +73,7 @@ export default function Chat() {
         msgs.map((m) => ({
           id: m.id,
           content: m.content,
-          sender: m.role as 'user' | 'bot',
+          sender: m.role as 'user' | 'assistant',
           timestamp: new Date(m.created_at),
           sources: m.sources,
         }))
@@ -128,7 +128,7 @@ export default function Chat() {
         // Add empty bot message for streaming
         setMessages((prev) => [
           ...prev,
-          { id: botId, content: '', sender: 'bot', timestamp: new Date(), sources: [] },
+          { id: botId, content: '', sender: 'assistant', timestamp: new Date(), sources: [] },
         ]);
 
         await apiService.sendMessageStream(
