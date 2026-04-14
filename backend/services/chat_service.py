@@ -2,7 +2,7 @@ import json
 import logging
 from typing import AsyncGenerator, List, Optional
 
-from langchain_openai import AzureChatOpenAI
+from langchain_ollama import ChatOllama
 from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
 
 from core.config import Settings
@@ -50,13 +50,10 @@ class ChatService:
         self.agent_config_repo = agent_config_repo
 
         # Fallback LLM (used when DB has no model config)
-        self._fallback_llm = AzureChatOpenAI(
-            azure_deployment=settings.azure_openai_llm_deployment,
-            azure_endpoint=settings.azure_openai_endpoint,
-            api_key=settings.azure_openai_api_key,
-            api_version=settings.azure_openai_api_version,
+        self._fallback_llm = ChatOllama(
+            model=settings.ollama_llm_model,
+            base_url=settings.ollama_base_url,
             temperature=0.7,
-            streaming=True,
         )
 
         # Langfuse tracing

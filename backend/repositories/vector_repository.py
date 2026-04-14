@@ -2,7 +2,7 @@ import logging
 from typing import List
 
 from langchain.schema import Document
-from langchain_openai import AzureOpenAIEmbeddings
+from langchain_ollama import OllamaEmbeddings
 from langchain_postgres import PGVector
 from sqlalchemy import create_engine, text
 
@@ -16,11 +16,9 @@ class VectorRepository:
         self.collection_name = collection_name
         self.connection_str = settings.database_url
 
-        self.embeddings = AzureOpenAIEmbeddings(
-            azure_deployment=settings.azure_openai_embedding_deployment,
-            azure_endpoint=settings.azure_openai_endpoint,
-            api_key=settings.azure_openai_api_key,
-            api_version=settings.azure_openai_api_version,
+        self.embeddings = OllamaEmbeddings(
+            model=settings.ollama_embedding_model,
+            base_url=settings.ollama_base_url,
         )
 
         self.store = PGVector(

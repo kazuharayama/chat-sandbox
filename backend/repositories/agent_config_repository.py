@@ -108,13 +108,15 @@ class AgentConfigRepository:
             if count == 0:
                 conn.execute(text("""
                     INSERT INTO llm_models (name, provider, deployment_name, temperature, is_default, config)
-                    VALUES ('gpt-4o', 'azure_openai', 'gpt-4o', 0.7, true,
-                            '{"api_version": "2024-08-01-preview"}')
+                    VALUES
+                    ('llama3.1:8b', 'ollama', 'llama3.1:8b', 0.7, true,
+                     '{"base_url": "http://ollama-cpu:11434"}'),
+                    ('claude (CLI)', 'claude_cli', 'claude', 0.7, false, '{}')
                 """))
                 conn.execute(text("""
                     INSERT INTO agent_definitions (name, display_name, description, agent_type, llm_model_id, is_enabled)
                     VALUES ('assistant', 'AIアシスタント', 'RAG対応の汎用チャットアシスタント', 'chat',
-                            (SELECT id FROM llm_models WHERE name = 'gpt-4o'), true)
+                            (SELECT id FROM llm_models WHERE name = 'llama3.1:8b'), true)
                 """))
                 conn.execute(text("""
                     INSERT INTO prompt_templates (agent_id, prompt_key, content, version, is_active)
@@ -152,7 +154,7 @@ class AgentConfigRepository:
                 conn.execute(text("""
                     INSERT INTO agent_definitions (name, display_name, description, agent_type, llm_model_id, is_enabled)
                     VALUES ('search_agent', '検索エージェント', 'Plan→Retrieve→Evaluate→Answerのマルチステップ検索', 'search',
-                            (SELECT id FROM llm_models WHERE name = 'gpt-4o'), true)
+                            (SELECT id FROM llm_models WHERE name = 'llama3.1:8b'), true)
                 """))
                 conn.execute(text("""
                     INSERT INTO prompt_templates (agent_id, prompt_key, content, version, is_active) VALUES

@@ -12,11 +12,10 @@
                           │
                     ┌─────┼──────────┐
                     ▼     ▼          ▼
-             ┌──────────┐┌────────┐┌──────────┐
-             │Azure     ││Ollama/ ││ Langfuse │
-             │OpenAI    ││vLLM   ││(Tracing) │
-             │(gpt-4o)  ││(local) ││          │
-             └──────────┘└────────┘└──────────┘
+             ┌──────────┐┌──────────┐
+             │ Ollama   ││ Langfuse │
+             │ (local)  ││(Tracing) │
+             └──────────┘└──────────┘
 ```
 
 ## 技術スタック
@@ -26,10 +25,10 @@
 | Frontend | React 19, TypeScript, Vite 7, Tailwind CSS, lucide-react |
 | Backend | Python 3.11, FastAPI, LangChain, Uvicorn |
 | Database | PostgreSQL 16 + pgvector |
-| LLM | Azure OpenAI gpt-4o / Ollama / vLLM (管理画面から切り替え可) |
-| Embedding (テキスト) | Azure OpenAI text-embedding-ada-002 |
+| LLM | Ollama (llama3.1:8b等、管理画面からモデル変更可) |
+| Embedding (テキスト) | Ollama nomic-embed-text |
 | Embedding (画像) | CLIP ViT-B-32 (sentence-transformers) |
-| Vision | GPT-4o Vision (画像理解、base64送信) |
+| Vision | LLaVA等 (Ollama経由、画像理解、base64送信) |
 | ファイル保存 | Azure Blob Storage |
 | 監視 | Langfuse v3（セルフホスト、docker-compose統合） |
 | インフラ | Docker Compose (GPU/CPUプロファイル対応) |
@@ -125,21 +124,18 @@ routers → services → repositories → infrastructure
 
 ### 前提条件
 - Docker & Docker Compose
-- Azure OpenAI APIキー
-- Azure CLI (`az login` 済み) — Terraform/Entra ID用
+- Azure CLI (`az login` 済み) — Terraform/Entra ID用 (オプション)
 
 ### 環境変数 (.env)
 ```bash
 cp .env.example .env
-# Azure OpenAI キーを設定
-AZURE_OPENAI_API_KEY=<key>
-AZURE_OPENAI_ENDPOINT=<endpoint>
+# デフォルトでOllama使用、設定不要
 ```
 
 ### 起動コマンド
 ```bash
-# 全サービス起動（Azure OpenAIのみ）
-docker compose up -d
+# 全サービス起動（Ollama CPU）
+docker compose --profile cpu up -d
 
 # ローカルLLM付き起動（GPU自動検出）
 ./scripts/start.sh
@@ -230,17 +226,22 @@ docker compose down -v && docker compose up -d
 | POST | `/admin/context-preview` | コンテキストプレビュー (最終プロンプト全文) |
 | POST | `/admin/test-chat` | テストチャット (SSEストリーミング) |
 
-## LLMプロバイダー切り替え
+## LLMプロバイダー
 
-管理画面の「LLMモデル」タブでプロバイダーを切り替え可能:
+管理画面の「LLMモデル」タブでプロバイダー・モデルを切り替え可能:
 
-| プロバイダー | 実装クラス | 備考 |
-|------------|-----------|------|
-| `azure_openai` | AzureChatOpenAI | デフォルト。Vision対応 |
-| `ollama` | ChatOllama | GPU/CPU両対応。docker compose profilesで起動 |
-| `vllm` | ChatOpenAI (互換API) | GPU必須。高スループット |
+| プロバイダー | 実装 | 用途 | コスト |
+|------------|------|------|--------|
+| `ollama` | ChatOllama | LLM + Embedding | 無料 (ローカル) |
+| `claude_cli` | ChatClaudeCLI (`claude -p`) | LLM | Teams契約内 |
 
-`llm_factory.py` がproviderに応じたインスタンスを生成。TTL 60秒キャッシュ付き。
+| モデル | プロバイダー | 用途 |
+|--------|------------|------|
+| `llama3.1:8b` | ollama | チャット (デフォルト) |
+| `claude` | claude_cli | チャット (高品質) |
+| `nomic-embed-text` | ollama | テキストEmbedding |
+
+Embedding は常に Ollama。`llm_factory.py` がプロバイダーに応じたインスタンスを生成。TTL 60秒キャッシュ付き。
 
 ## コーディング規約
 

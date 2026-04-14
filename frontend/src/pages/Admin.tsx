@@ -174,18 +174,16 @@ export default function Admin() {
 
   const providerLabel = (provider: string) => {
     switch (provider) {
-      case 'azure_openai': return 'Azure OpenAI';
       case 'ollama': return 'Ollama';
-      case 'vllm': return 'vLLM';
+      case 'claude_cli': return 'Claude (CLI)';
       default: return provider;
     }
   };
 
   const providerColor = (provider: string) => {
     switch (provider) {
-      case 'azure_openai': return 'bg-blue-100 text-blue-700';
       case 'ollama': return 'bg-purple-100 text-purple-700';
-      case 'vllm': return 'bg-orange-100 text-orange-700';
+      case 'claude_cli': return 'bg-amber-100 text-amber-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
@@ -438,8 +436,7 @@ export default function Admin() {
                           className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 mt-1"
                         >
                           <option value="ollama">Ollama</option>
-                          <option value="vllm">vLLM</option>
-                          <option value="azure_openai">Azure OpenAI</option>
+                          <option value="claude_cli">Claude (CLI)</option>
                         </select>
                       </div>
                       <div>
@@ -448,7 +445,7 @@ export default function Admin() {
                           type="text" value={newModelForm.deployment_name}
                           onChange={e => setNewModelForm({ ...newModelForm, deployment_name: e.target.value })}
                           className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 mt-1"
-                          placeholder={newModelForm.provider === 'ollama' ? 'llama3.1:8b' : newModelForm.provider === 'vllm' ? 'meta-llama/Llama-3.1-8B-Instruct' : 'gpt-4o'}
+                          placeholder="llama3.1:8b"
                         />
                       </div>
                       <div>

@@ -154,15 +154,12 @@ class ContextLabService:
                 logger.warning("Failed to create test LLM: %s", e)
 
         if not llm:
-            from langchain_openai import AzureChatOpenAI
-            llm = AzureChatOpenAI(
-                azure_deployment=self.settings.azure_openai_llm_deployment,
-                azure_endpoint=self.settings.azure_openai_endpoint,
-                api_key=self.settings.azure_openai_api_key,
-                api_version=self.settings.azure_openai_api_version,
+            from langchain_ollama import ChatOllama
+            llm = ChatOllama(
+                model=self.settings.ollama_llm_model,
+                base_url=self.settings.ollama_base_url,
                 temperature=temperature,
-                max_tokens=max_tokens,
-                streaming=True,
+                num_predict=max_tokens,
             )
 
         yield f"data: {json.dumps({'type': 'params', 'similarity_k': similarity_k, 'threshold': threshold, 'temperature': temperature, 'max_tokens': max_tokens}, ensure_ascii=False)}\n\n"

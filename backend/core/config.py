@@ -4,12 +4,10 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # Azure OpenAI
-    azure_openai_api_key: str = ""
-    azure_openai_endpoint: str = ""
-    azure_openai_api_version: str = "2024-08-01-preview"
-    azure_openai_llm_deployment: str = "gpt-4o"
-    azure_openai_embedding_deployment: str = "text-embedding-ada-002"
+    # Ollama
+    ollama_base_url: str = "http://ollama-cpu:11434"
+    ollama_llm_model: str = "llama3.1:8b"
+    ollama_embedding_model: str = "nomic-embed-text"
 
     # Database
     db_host: str = "localhost"
