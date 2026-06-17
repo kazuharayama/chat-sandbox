@@ -59,6 +59,9 @@ esac
 
 EXTRA_ARGS="$@"
 
+# Models to pull on startup (LLM + Embedding)
+OLLAMA_MODELS=("gemma2:2b" "llama3.2:3b" "nomic-embed-text")
+
 # Start services
 if [ -n "$PROFILE" ]; then
     echo ""
@@ -67,9 +70,32 @@ if [ -n "$PROFILE" ]; then
     docker compose --profile "${PROFILE}" up -d ${EXTRA_ARGS}
 else
     echo ""
-    echo "Starting without local LLM (Azure OpenAI only)"
+    echo "Starting without local LLM"
     echo "  docker compose up -d ${EXTRA_ARGS}"
     docker compose up -d ${EXTRA_ARGS}
+fi
+
+# Auto-pull Ollama models when LLM profile is active
+if [ "$PROFILE" = "gpu" ] || [ "$PROFILE" = "cpu" ]; then
+    OLLAMA_SVC="ollama-${PROFILE}"
+    echo ""
+    echo "=== Ensuring Ollama models are available (${OLLAMA_SVC}) ==="
+    # Wait for ollama to accept connections
+    for i in {1..30}; do
+        if docker compose --profile "${PROFILE}" exec -T "${OLLAMA_SVC}" ollama list >/dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+    done
+    for model in "${OLLAMA_MODELS[@]}"; do
+        if docker compose --profile "${PROFILE}" exec -T "${OLLAMA_SVC}" ollama list 2>/dev/null | grep -q "^${model}"; then
+            echo "  [skip] ${model} already present"
+        else
+            echo "  [pull] ${model}"
+            docker compose --profile "${PROFILE}" exec -T "${OLLAMA_SVC}" ollama pull "${model}" || \
+                echo "  [warn] failed to pull ${model} (continuing)"
+        fi
+    done
 fi
 
 echo ""

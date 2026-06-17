@@ -13,16 +13,17 @@
 
 | ステップ | 状態 | 備考 |
 |----------|------|------|
-| Step 1: RAGの基本 | 完了 | レイヤードアーキテクチャ、Azure OpenAI、pgvector |
+| Step 1: RAGの基本 | 完了 | レイヤードアーキテクチャ、Ollama、pgvector |
 | Step 2: UX改善 | 完了 | SSEストリーミング、セッション管理、Gemini風UI |
 | Step 3: マルチモーダル + Azure | 完了 | CLIP、Azure Blob Storage、Terraform |
-| Step 4: エージェント設定基盤 | **完了** | DB動的読み込み、管理画面UI (モデル/ナレッジソース編集)、LLMプロバイダー切替 |
+| Step 4: エージェント設定基盤 | **完了** | DB動的読み込み、管理画面UI、Ollama/Claude CLI切替 |
 | Step 5: 認証 | **完了** | Entra ID + MSAL + Terraform。全エンドポイント認証適用 |
 | Step 5.5: 音声 (STT/TTS) | **完了** | Whisper (STT) + Piper (TTS)。マイクボタンUI |
 | Step 5.5: タスク管理 | **完了** | カンバンボード (TODO/進行中/完了) |
-| Step 5.5: Vision | **完了** | GPT-4o Vision (画像base64送信) |
-| Step 6: マルチエージェント | 未着手 | |
-| Step 7: 精度改善 | 未着手 | |
+| Step 5.5: Vision | **完了** | LLaVA等 (Ollama経由、画像base64送信) |
+| Step 5.6: LLM刷新 | **完了** | Azure OpenAI廃止、Ollama一本化 + Claude CLI追加 |
+| Step 6: マルチエージェント (FB) | **完了** | LangGraph Search Agent (Plan→Retrieve→Evaluate→Answer) |
+| Step 7: 精度改善 (FE) | 未着手 | |
 
 ### 既知のギャップ
 
@@ -36,7 +37,7 @@
 |----|---------------|--------|--------|------|------|------|
 | F0 | エージェント設定基盤の完成 | P0 (前提) | M | なし | **完了** | [F0-agent-config.md](F0-agent-config.md) |
 | FA | Context Engineering Lab | P1 | L | F0 | **完了** | [FA-context-lab.md](FA-context-lab.md) |
-| FB | Search Agent (Agentic RAG) | P2 | XL | F0, FA | 未着手 | [FB-search-agent.md](FB-search-agent.md) |
+| FB | Search Agent (Agentic RAG) | P2 | XL | F0, FA | **完了** | [FB-search-agent.md](FB-search-agent.md) |
 | FC | 音声対話 (STT/TTS) | P2 | XL | なし | **完了** (Whisper+Piper) | [FC-voice.md](FC-voice.md) |
 | FD | 認証統合 (Entra ID) | P1 | S | なし | **完了** | [FD-auth.md](FD-auth.md) |
 | FE | 精度改善・運用基盤 | P2 | L | F0, FA | 未着手 | [FE-accuracy.md](FE-accuracy.md) |

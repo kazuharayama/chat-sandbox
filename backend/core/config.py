@@ -4,10 +4,13 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # Ollama
-    ollama_base_url: str = "http://ollama-cpu:11434"
-    ollama_llm_model: str = "llama3.1:8b"
-    ollama_embedding_model: str = "nomic-embed-text"
+    # Local LLM (OpenAI-compatible endpoint)
+    llm_base_url: str = "http://ollama-cpu:11434"
+    llm_model: str = "gemma2:2b"
+    embedding_model: str = "nomic-embed-text"
+    # Embedding backend: "ollama" (native) | "openai_compatible"
+    embedding_provider: str = "ollama"
+    embedding_base_url: str = ""  # falls back to llm_base_url when empty
 
     # Database
     db_host: str = "localhost"

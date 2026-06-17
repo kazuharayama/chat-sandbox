@@ -109,14 +109,16 @@ class AgentConfigRepository:
                 conn.execute(text("""
                     INSERT INTO llm_models (name, provider, deployment_name, temperature, is_default, config)
                     VALUES
-                    ('llama3.1:8b', 'ollama', 'llama3.1:8b', 0.7, true,
+                    ('gemma2:2b', 'ollama', 'gemma2:2b', 0.7, true,
+                     '{"base_url": "http://ollama-cpu:11434"}'),
+                    ('llama3.2:3b', 'ollama', 'llama3.2:3b', 0.7, false,
                      '{"base_url": "http://ollama-cpu:11434"}'),
                     ('claude (CLI)', 'claude_cli', 'claude', 0.7, false, '{}')
                 """))
                 conn.execute(text("""
                     INSERT INTO agent_definitions (name, display_name, description, agent_type, llm_model_id, is_enabled)
                     VALUES ('assistant', 'AIアシスタント', 'RAG対応の汎用チャットアシスタント', 'chat',
-                            (SELECT id FROM llm_models WHERE name = 'llama3.1:8b'), true)
+                            (SELECT id FROM llm_models WHERE name = 'gemma2:2b'), true)
                 """))
                 conn.execute(text("""
                     INSERT INTO prompt_templates (agent_id, prompt_key, content, version, is_active)
@@ -154,7 +156,7 @@ class AgentConfigRepository:
                 conn.execute(text("""
                     INSERT INTO agent_definitions (name, display_name, description, agent_type, llm_model_id, is_enabled)
                     VALUES ('search_agent', '検索エージェント', 'Plan→Retrieve→Evaluate→Answerのマルチステップ検索', 'search',
-                            (SELECT id FROM llm_models WHERE name = 'llama3.1:8b'), true)
+                            (SELECT id FROM llm_models WHERE name = 'gemma2:2b'), true)
                 """))
                 conn.execute(text("""
                     INSERT INTO prompt_templates (agent_id, prompt_key, content, version, is_active) VALUES

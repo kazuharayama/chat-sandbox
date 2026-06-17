@@ -131,7 +131,7 @@ export default function Admin() {
       const config: Record<string, string> = {};
       if (newModelForm.provider === 'ollama') {
         config.base_url = newModelForm.base_url || 'http://ollama:11434';
-      } else if (newModelForm.provider === 'vllm') {
+      } else if (newModelForm.provider === 'openai_compatible') {
         config.base_url = newModelForm.base_url || 'http://vllm:8000/v1';
       }
       await apiService.createModel({
@@ -175,6 +175,7 @@ export default function Admin() {
   const providerLabel = (provider: string) => {
     switch (provider) {
       case 'ollama': return 'Ollama';
+      case 'openai_compatible': return 'OpenAI互換';
       case 'claude_cli': return 'Claude (CLI)';
       default: return provider;
     }
@@ -183,6 +184,7 @@ export default function Admin() {
   const providerColor = (provider: string) => {
     switch (provider) {
       case 'ollama': return 'bg-purple-100 text-purple-700';
+      case 'openai_compatible': return 'bg-emerald-100 text-emerald-700';
       case 'claude_cli': return 'bg-amber-100 text-amber-700';
       default: return 'bg-gray-100 text-gray-700';
     }
@@ -425,7 +427,7 @@ export default function Admin() {
                           type="text" value={newModelForm.name}
                           onChange={e => setNewModelForm({ ...newModelForm, name: e.target.value })}
                           className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 mt-1"
-                          placeholder="llama3.1:8b"
+                          placeholder="llama3.1:8b / gemma2:9b"
                         />
                       </div>
                       <div>
@@ -436,6 +438,7 @@ export default function Admin() {
                           className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 mt-1"
                         >
                           <option value="ollama">Ollama</option>
+                          <option value="openai_compatible">OpenAI互換 (vLLM/llama.cpp/LM Studio等)</option>
                           <option value="claude_cli">Claude (CLI)</option>
                         </select>
                       </div>
@@ -445,7 +448,7 @@ export default function Admin() {
                           type="text" value={newModelForm.deployment_name}
                           onChange={e => setNewModelForm({ ...newModelForm, deployment_name: e.target.value })}
                           className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 mt-1"
-                          placeholder="llama3.1:8b"
+                          placeholder="llama3.1:8b / gemma2:9b"
                         />
                       </div>
                       <div>
@@ -454,7 +457,7 @@ export default function Admin() {
                           type="text" value={newModelForm.base_url}
                           onChange={e => setNewModelForm({ ...newModelForm, base_url: e.target.value })}
                           className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 mt-1"
-                          placeholder={newModelForm.provider === 'ollama' ? 'http://ollama:11434' : 'http://vllm:8000/v1'}
+                          placeholder={newModelForm.provider === 'claude_cli' ? '(不要)' : newModelForm.provider === 'ollama' ? 'http://ollama:11434' : 'http://vllm:8000/v1'}
                         />
                       </div>
                     </div>

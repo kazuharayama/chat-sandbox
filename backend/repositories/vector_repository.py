@@ -2,7 +2,6 @@ import logging
 from typing import List
 
 from langchain.schema import Document
-from langchain_ollama import OllamaEmbeddings
 from langchain_postgres import PGVector
 from sqlalchemy import create_engine, text
 
@@ -16,10 +15,23 @@ class VectorRepository:
         self.collection_name = collection_name
         self.connection_str = settings.database_url
 
-        self.embeddings = OllamaEmbeddings(
-            model=settings.ollama_embedding_model,
-            base_url=settings.ollama_base_url,
-        )
+        base_url = settings.embedding_base_url or settings.llm_base_url
+        if settings.embedding_provider == "openai_compatible":
+            # Any OpenAI-compatible embeddings endpoint (vLLM, LocalAI, Ollama(/v1), ...)
+            from langchain_openai import OpenAIEmbeddings
+            self.embeddings = OpenAIEmbeddings(
+                model=settings.embedding_model,
+                base_url=base_url,
+                api_key="dummy",  # local servers ignore the key
+                check_embedding_ctx_length=False,
+            )
+        else:
+            # Default: Ollama (native API)
+            from langchain_ollama import OllamaEmbeddings
+            self.embeddings = OllamaEmbeddings(
+                model=settings.embedding_model,
+                base_url=base_url,
+            )
 
         self.store = PGVector(
             embeddings=self.embeddings,

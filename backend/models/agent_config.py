@@ -7,7 +7,7 @@ from pydantic import BaseModel
 class LLMModelInfo(BaseModel):
     id: str
     name: str
-    provider: str  # azure_openai, ollama, vllm
+    provider: str  # ollama, openai_compatible, claude_cli
     deployment_name: str
     temperature: Optional[float]
     max_tokens: Optional[int]
@@ -17,7 +17,7 @@ class LLMModelInfo(BaseModel):
 
 class LLMModelCreateRequest(BaseModel):
     name: str
-    provider: str  # azure_openai, ollama, vllm
+    provider: str  # ollama, openai_compatible, claude_cli
     deployment_name: str
     temperature: Optional[float] = 0.7
     max_tokens: Optional[int] = None

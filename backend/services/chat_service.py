@@ -51,8 +51,8 @@ class ChatService:
 
         # Fallback LLM (used when DB has no model config)
         self._fallback_llm = ChatOllama(
-            model=settings.ollama_llm_model,
-            base_url=settings.ollama_base_url,
+            model=settings.llm_model,
+            base_url=settings.llm_base_url,
             temperature=0.7,
         )
 

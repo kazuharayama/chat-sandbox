@@ -20,10 +20,11 @@
 | ソース表示 | 実装済み | 回答の参照元ドキュメントをバッジ表示 |
 | チャットからファイルアップロード | 実装済み | チャット画面で直接ファイルを添付して質問 |
 | 多言語対応 | 実装済み | 応答言語の切り替え (デフォルト: 日本語) |
-| GPT-4o Vision画像理解 | 実装済み | 画像をbase64でLLMに送信し内容を理解・回答 |
+| Vision画像理解 | 実装済み | LLaVA等のVisionモデルで画像をbase64送信・理解 |
 | 音声入力 (STT) | 実装済み | マイクボタンでWhisperによる音声認識 → テキスト変換 |
 | 音声出力 (TTS) | 実装済み | Piperによるテキスト → 音声合成 (日本語) |
-| 検索エージェント (Agentic RAG) | 未実装 | Plan → Retrieve → Evaluate → Answer のマルチステップ検索 |
+| 検索エージェント (Agentic RAG) | 実装済み | LangGraph: Plan → Retrieve → Evaluate → Answer のマルチステップ検索 |
+| Supervisor ルーティング | 実装済み | 質問内容から `search` / `chat` エージェントを自動振り分け |
 
 ## 2. セッション管理
 
@@ -40,7 +41,7 @@
 |------|------|------|
 | ドキュメントアップロード | 実装済み | PDF, TXT, Markdown, CSV, 画像 (PNG/JPG等) に対応 |
 | Azure Blob Storage永続化 | 実装済み | アップロードファイルをBlob Storageに保存 |
-| テキストベクトル化 | 実装済み | LangChainローダー → チャンキング (1000/200) → Azure OpenAI Embedding → pgvector |
+| テキストベクトル化 | 実装済み | LangChainローダー → チャンキング (1000/200) → Ollama nomic-embed-text → pgvector |
 | 画像ベクトル化 (CLIP) | 実装済み | CLIP ViT-B-32でマルチモーダル検索対応 |
 | ドキュメント削除 | 実装済み | Blob Storage + ベクトルストアの両方から削除 |
 | グリッド/リスト表示切替 | 実装済み | ドキュメント一覧の表示モード切り替え |
@@ -66,7 +67,7 @@
 | 管理API (CRUD) | 実装済み | `/admin/*` エンドポイントで全設定の読み書き |
 | 管理画面 (プロンプト編集) | 実装済み | プロンプトの編集・バージョン履歴・ロールバックUI |
 | 管理画面 (モデル編集) | 実装済み | temperature, max_tokensの編集。デフォルトモデル切り替え |
-| 管理画面 (モデル追加) | 実装済み | プロバイダー選択 (Azure OpenAI/Ollama/vLLM) + パラメータ設定 |
+| 管理画面 (モデル追加) | 実装済み | プロバイダー選択 (Ollama / Claude CLI) + パラメータ設定 |
 | 管理画面 (ナレッジソース編集) | 実装済み | similarity_kのスライダー編集 |
 | ChatServiceのDB動的読み込み | 実装済み | LLMパラメータ・similarity_kをDBから読み込み。TTL 60秒キャッシュ |
 | LLMキャッシュクリア | 実装済み | `/admin/cache/clear` で手動キャッシュクリア |
@@ -75,11 +76,11 @@
 
 | 機能 | 状態 | 説明 |
 |------|------|------|
-| Azure OpenAI (gpt-4o) | 実装済み | AzureChatOpenAIで接続。デフォルトプロバイダー |
-| Azure OpenAI Embedding | 実装済み | text-embedding-ada-002でテキストベクトル化 |
-| Ollama (ローカルLLM) | 実装済み | GPU/CPU両対応。Docker Compose profilesで起動 |
-| vLLM (高スループット) | 実装済み | GPU必須。OpenAI互換APIで接続 |
-| LLMプロバイダー切り替え | 実装済み | 管理画面からAzure OpenAI / Ollama / vLLMを切り替え |
+| Ollama (ローカルLLM) | 実装済み | gemma2:2b / llama3.2:3b 等。GPU/CPU両対応。デフォルトプロバイダー |
+| OpenAI互換サーバ | 実装済み | `provider=openai_compatible` で vLLM/llama.cpp/LM Studio/TGI/LocalAI 等を `base_url` 指定で利用 (ChatOpenAI) |
+| Embedding (テキスト) | 実装済み | nomic-embed-text でベクトル化。`EMBEDDING_PROVIDER` で Ollama / OpenAI互換 を切り替え |
+| Claude CLI (`claude -p`) | 実装済み | LangChain BaseChatModel ラッパー (ChatClaudeCLI)。Teams契約内で利用 |
+| LLMプロバイダー切り替え | 実装済み | 管理画面から Ollama / OpenAI互換 / Claude CLI を切り替え |
 | GPU自動検出 | 実装済み | `scripts/start.sh` でGPU有無を検出し、docker compose profilesで切り替え |
 | LLMファクトリ | 実装済み | `llm_factory.py` でproviderに応じたインスタンス生成。TTLキャッシュ付き |
 
@@ -137,8 +138,7 @@ Frontend (React 19) → Backend (FastAPI) → PostgreSQL (pgvector)
                             │
                     ┌───────┼───────┐
                     ▼       ▼       ▼
-              Azure OpenAI  Blob  Langfuse
-              (Ollama/vLLM)
+            Ollama / Claude CLI  Blob  Langfuse
 ```
 
 ## 関連ドキュメント

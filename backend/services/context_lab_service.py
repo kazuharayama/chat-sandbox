@@ -156,8 +156,8 @@ class ContextLabService:
         if not llm:
             from langchain_ollama import ChatOllama
             llm = ChatOllama(
-                model=self.settings.ollama_llm_model,
-                base_url=self.settings.ollama_base_url,
+                model=self.settings.llm_model,
+                base_url=self.settings.llm_base_url,
                 temperature=temperature,
                 num_predict=max_tokens,
             )

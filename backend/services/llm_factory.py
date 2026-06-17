@@ -20,14 +20,24 @@ def create_llm(model: LLMModelInfo, settings: Settings) -> BaseChatModel:
             model_name=model.deployment_name or "claude",
             max_tokens=model.max_tokens,
         )
-    else:
-        # Default: Ollama
-        return ChatOllama(
+    if model.provider == "openai_compatible":
+        # Any OpenAI-compatible server: vLLM, llama.cpp, LM Studio, TGI, LocalAI, Ollama(/v1) ...
+        from langchain_openai import ChatOpenAI
+        return ChatOpenAI(
             model=model.deployment_name,
-            base_url=config.get("base_url", settings.ollama_base_url),
+            base_url=config.get("base_url", settings.llm_base_url),
+            api_key=config.get("api_key", "dummy"),  # local servers ignore the key
             temperature=model.temperature or 0.7,
-            num_predict=model.max_tokens,
+            max_tokens=model.max_tokens,
         )
+
+    # Default: Ollama (native API)
+    return ChatOllama(
+        model=model.deployment_name,
+        base_url=config.get("base_url", settings.llm_base_url),
+        temperature=model.temperature or 0.7,
+        num_predict=model.max_tokens,
+    )
 
 
 _llm_cache: dict[str, tuple[BaseChatModel, float]] = {}
