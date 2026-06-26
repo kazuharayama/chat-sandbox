@@ -156,6 +156,10 @@ LangChainのPGVectorが自動管理するテーブル。直接操作しない。
 ### エージェント設定系
 管理画面から変更可能な設定テーブル群。
 
+> **作成タイミング**: これらのテーブルは `docker/postgres/init.sql` ではなく、
+> アプリ起動時に `backend/repositories/agent_config_repository.py::_ensure_tables` が
+> `CREATE TABLE IF NOT EXISTS` で作成し、初期シードも投入する（スキーマの正本はリポジトリ側）。
+
 | テーブル | 説明 | レコード増加速度 |
 |---------|------|----------------|
 | `llm_models` | LLMプロバイダー定義 (Ollama, OpenAI互換, Claude CLI) | 手動登録 |

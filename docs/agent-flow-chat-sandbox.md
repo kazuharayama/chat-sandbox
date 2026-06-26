@@ -8,7 +8,7 @@ flowchart TD
     Upload -->|Yes| Blob[Azure Blob Storage<br/>にアップロード]
     Blob --> Process{画像?}
     Process -->|Yes| CLIP[CLIP Embedding<br/>→ pgvector image_documents]
-    Process -->|No| TextEmbed[Azure OpenAI Embedding<br/>→ pgvector chat_documents]
+    Process -->|No| TextEmbed[Ollama nomic-embed-text<br/>→ pgvector chat_documents]
     Upload -->|No| Session
 
     CLIP --> Session
@@ -29,7 +29,7 @@ flowchart TD
 
     BuildPrompt[プロンプト構築<br/>system + 履歴 + 検索結果 + 質問]
 
-    BuildPrompt --> LLM[Azure OpenAI<br/>gpt-4o]
+    BuildPrompt --> LLM[Ollama / Claude CLI<br/>DB設定で切替]
     LLM -->|SSE Stream| Response[トークンを逐次返却]
     Response --> SaveBot[ボットメッセージをDB保存]
     SaveBot --> User

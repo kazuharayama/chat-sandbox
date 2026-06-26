@@ -78,9 +78,10 @@ RAGパイプラインのパラメータ調整・プレビュー・テスト実�
 
 LangGraphベースのマルチステップ検索エージェントを実装し、評価指標による精度改善サイクルを確立する。
 
-### Phase 4: WebRTC Voice対話 (FC)
+### Phase 4: 音声対話 (FC) — **完了**
 
-音声入力→STT→RAGチャット→TTS→音声出力のリアルタイムパイプラインを構築する。Phase 1以降ならいつでも着手可能。
+音声入力→STT(Whisper)→RAGチャット→TTS(Piper)→音声出力のパイプラインをファイルベースで実装済み。
+当初構想の WebRTC/リアルタイム化は採用せず、ブラウザ録音→HTTPアップロード方式で完結。詳細は [FC-voice.md](FC-voice.md)。
 
 ## 6. 全体API変更サマリ
 
@@ -89,7 +90,7 @@ LangGraphベースのマルチステップ検索エージェントを実装し�
 | F0 | `PUT /admin/models/{id}`, `PUT /admin/knowledge-sources/{id}` | なし |
 | FA | `POST /admin/test-retrieval`, `POST /admin/test-chat`, `POST /admin/context-preview` | なし |
 | FB | なし | `/chat/stream` に SSE type="step" 追加 |
-| FC | `POST /voice/offer`, `POST /voice/ice-candidate`, `GET /voice/sessions/{id}/events` | なし |
+| FC | `POST /speech-to-text`, `POST /text-to-speech` | なし |
 | FD | なし | 全既存エンドポイントで認証が有効化 |
 | FE | `POST /admin/evaluations/run`, `GET /admin/evaluations/results`, `POST /admin/evaluations/datasets` | なし |
 
@@ -100,7 +101,7 @@ LangGraphベースのマルチステップ検索エージェントを実装し�
 | F0 | なし | なし |
 | FA | なし | なし |
 | FB | なし | seedデータ追加 |
-| FC | `voice_sessions`, `voice_events` | なし |
+| FC | なし (ステートレス) | なし |
 | FD | なし | なし |
 | FE | `evaluation_datasets`, `evaluation_results` | なし |
 
@@ -108,14 +109,14 @@ LangGraphベースのマルチステップ検索エージェントを実装し�
 
 | 項目 | 現状 | 将来対応 |
 |------|------|---------|
-| シークレット管理 | `.env` ファイルで管理 | Azure Key Vault に移行。`DefaultAzureCredential` + `azure-keyvault-secrets` SDKで起動時取得。対象: `AZURE_OPENAI_API_KEY`, `AZURE_STORAGE_CONNECTION_STRING`, `LANGFUSE_SECRET_KEY` |
+| シークレット管理 | `.env` ファイルで管理 | Azure Key Vault に移行。`DefaultAzureCredential` + `azure-keyvault-secrets` SDKで起動時取得。対象: `AZURE_STORAGE_CONNECTION_STRING`, `AZURE_CLIENT_SECRET`, `LANGFUSE_SECRET_KEY` |
 
 ## 9. リスク・留意事項
 
 | リスク | 影響 | 対策 |
 |--------|------|------|
 | LangGraphのバージョン互換性 | FBの実装に影響 | バージョン固定 + 最小PoCを先に実装 |
-| WebRTCのNAT/ファイアウォール問題 | FCがローカル以外で動作しない | TURNサーバー (coturn) をdocker-composeに追加 |
-| aiortcのPythonバージョン制約 | FCのランタイム問題 | 代替案としてWebSocket + AudioWorkletを検討 |
+| Piperバイナリ/日本語モデルの同梱 | FCのTTSが動作しない | コンテナに `piper` 実行ファイルとモデルを同梱、パスはconfig参照 |
+| Whisperモデルサイズ vs 速度 | FCのSTT精度/レイテンシ | `whisper_model_size`で調整。GPU環境は `whisper_device=cuda` |
 | LLMキャッシュ無効化タイミング | F0で設定変更が即反映されない | TTLキャッシュ (60s) + 手動クリアAPI |
 | 評価データセットの作成コスト | FEの実用性 | 初期は小規模 (10-20 queries) で開始 |

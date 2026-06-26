@@ -7,7 +7,10 @@
 | 依存 | なし |
 | 状態 | **完了** |
 
-> **更新 (2026-05-15)**: Azure OpenAI を廃止し、Ollama (llama3.1:8b / gemma2:9b) + Claude CLI (`claude -p`) のデュアルプロバイダー構成に変更。本文中の "azure_openai" / "gpt-4o" 記述は実装当時のもので、現在は対応しない。
+> **更新 (2026-06-17)**: Azure OpenAI を廃止し、現在は **`ollama` / `openai_compatible` / `claude_cli`** の3プロバイダー構成 (`backend/services/llm_factory.py`)。
+> デフォルトモデルは **`gemma2:2b`** (代替 `llama3.2:3b`)、高品質用に Claude CLI (`claude -p`)。
+> 本文中の "azure_openai" / "gpt-4o" / "vllm" 記述は実装当時のもので**現在は対応しない**。
+> vLLM/llama.cpp/LM Studio 等の OpenAI 互換サーバは `provider=openai_compatible` + `config.base_url`(例 `http://vllm:8000/v1`) で扱う (コード変更不要)。
 
 ## 1. 目的
 

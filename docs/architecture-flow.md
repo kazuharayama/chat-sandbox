@@ -109,8 +109,8 @@ graph TB
     subgraph External["外部サービス"]
         PG[(PostgreSQL 16<br/>+ pgvector)]
         Blob[(Azure Blob<br/>Storage)]
-        AOAI[Azure OpenAI<br/>gpt-4o]
-        Embed[Azure OpenAI<br/>text-embedding-ada-002]
+        AOAI[Ollama / Claude CLI<br/>DB設定で切替]
+        Embed[Ollama<br/>nomic-embed-text]
         LF[Langfuse v3<br/>トレーシング]
     end
 
@@ -145,7 +145,7 @@ sequenceDiagram
     participant Vec as VectorRepo
     participant Img as ImageRepo
     participant PG as PostgreSQL
-    participant LLM as Azure OpenAI
+    participant LLM as Ollama / Claude CLI
     participant LF as Langfuse
 
     User->>Chat: メッセージ入力
@@ -224,7 +224,7 @@ sequenceDiagram
     participant ImgRepo as ImageRepo
     participant Blob as Azure Blob Storage
     participant PG as PostgreSQL
-    participant Embed as Azure OpenAI<br/>Embedding
+    participant Embed as Ollama<br/>Embedding
     participant CLIP as CLIP ViT-B-32
 
     User->>Docs: ファイル選択 + アップロード

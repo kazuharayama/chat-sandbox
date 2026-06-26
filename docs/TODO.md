@@ -4,16 +4,16 @@
 > 作業のたびに更新し、コミット＆プッシュします。完了したら ✅ にするか削除します。
 > 詳細な根拠は各 doc-review レポート (`docs/reviews/`) を参照。
 
-**最終更新**: 2026-06-17 / 対象コミット: `b1eead1`
+**最終更新**: 2026-06-17 / 直近の作業: doc-review 指摘のドキュメント整合を完了
 
 ---
 
-## 🔧 運用・動作確認
+## 🔧 運用・動作確認 (未実施)
 
 - [ ] 依存追加 (`langchain-openai`) とスキーマ変更を反映して動作確認
   ```bash
   docker compose build backend
-  docker compose down -v && docker compose --profile cpu up -d
+  docker compose down -v && docker compose --profile cpu up -d   # ※ down -v はDB/アップロード資産を破棄
   ```
   - `openai_compatible` プロバイダーでチャットできること
   - `EMBEDDING_PROVIDER` 切替が効くこと
@@ -21,24 +21,20 @@
 
 ---
 
-## 🔴 Blocker (ドキュメント整合 / doc-review 優先度1)
+## ✅ ドキュメント整合 (doc-review 指摘) — 完了 (2026-06-17)
 
 出典: `docs/reviews/2026-06-17-claude-opus-4-8.md`
 
-- [ ] **FC-voice.md を Whisper+Piper にリメイク** — 現状は WebRTC+aiortc+Azure Speech の架空仕様。`/speech-to-text` `/text-to-speech` に合わせ、`voice_sessions`/`voice_events`/aiortc 記述を削除
-- [ ] **PRD.md の Azure OpenAI 更新** — `PRD.md:34-35,70-75,111`。技術スタック/環境変数を Ollama + Claude CLI + `LLM_BASE_URL`系へ
-- [ ] **architecture-flow.md の Mermaid 図更新** — `:112-113,148,227` の Azure OpenAI を Ollama/Claude CLI/CLIP へ
+- [x] FC-voice.md を Whisper+Piper にリメイク (WebRTC/aiortc/voice_sessions 削除)
+- [x] PRD.md の Azure OpenAI 更新 (技術スタック/環境変数/Step1/Vision)
+- [x] architecture-flow.md の Mermaid 図を Ollama/Claude CLI/CLIP に
+- [x] F0-agent-config.md 冒頭注記を正確化 (3プロバイダー/現行モデル/vLLM→openai_compatible)
+- [x] requirements/README.md Phase 4 を「完了(Whisper+Piper)」に、API/DB/リスク表のWebRTC残骸を除去、Key VaultからAZURE_OPENAI_API_KEY削除
+- [x] agent-flow-chat-sandbox.md の Azure→Ollama 置換
+- [x] er-diagram.md にエージェント設定テーブルのアプリ管理注記を追加
+- [x] FE-accuracy.md の「GPT-4o Vision」→「Vision (LLaVA等, Ollama経由)」
 
-## 🟡 High (doc-review 優先度2)
-
-- [ ] **F0-agent-config.md の vLLM 記載を `openai_compatible` へ書き換え** — 疑似コード/configスキーマ/seed例 (`:74-82,216,231-234`)
-- [ ] **モデル名の統一** — doc の `llama3.1:8b`/`gemma2:9b` → 実シード `gemma2:2b`/`llama3.2:3b`
-- [ ] **requirements/README.md Phase 4 整理** — WebRTC前提の Phase4 を削除/将来構想化し、FC を「完了(Whisper+Piper)」で統一
-
-## 🟢 Low (doc-review 優先度3)
-
-- [ ] **ER図補完** — `knowledge_sources.is_enabled` 追記、routing_rules リレーション、"agent-configはアプリ起動時に `_ensure_tables()` で作成" の注記
-- [ ] **agent-flow-chat-sandbox.md の Azure→Ollama 置換** (`:11,32`)
+> 備考: `F0-agent-config.md` 本文の azure_openai 疑似コードは冒頭注記で「実装当時のもの／現在非対応」と明示済みのため歴史的記述として保持。
 
 ---
 

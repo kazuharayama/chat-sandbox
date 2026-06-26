@@ -31,8 +31,8 @@ cmos-maintenance-appのバックエンド構成問題を踏まえ、ベストプ
 | Frontend | React 19, TypeScript, Vite 7, Tailwind CSS |
 | Backend | Python 3.11, FastAPI, LangChain |
 | Database | PostgreSQL 16 + pgvector |
-| LLM | Azure OpenAI gpt-4o（AzureChatOpenAI, SSEストリーミング） |
-| Embedding (テキスト) | Azure OpenAI text-embedding-ada-002 |
+| LLM | Ollama / OpenAI互換サーバ / Claude CLI（管理画面で切替, SSEストリーミング） |
+| Embedding (テキスト) | Ollama nomic-embed-text（`EMBEDDING_PROVIDER`でOpenAI互換にも切替可） |
 | Embedding (画像) | CLIP ViT-B-32（sentence-transformers） |
 | ファイル保存 | Azure Blob Storage |
 | 監視 | Langfuse v3（セルフホスト、docker-compose統合） |
@@ -67,12 +67,12 @@ routers → services → repositories → infrastructure
 ## 6. 環境変数
 
 ```bash
-# Azure OpenAI
-AZURE_OPENAI_API_KEY=<key>
-AZURE_OPENAI_ENDPOINT=<endpoint>
-AZURE_OPENAI_API_VERSION=2024-08-01-preview
-AZURE_OPENAI_LLM_DEPLOYMENT=gpt-4o
-AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-ada-002
+# Local LLM (OpenAI互換エンドポイント)
+LLM_BASE_URL=http://ollama-cpu:11434
+LLM_MODEL=gemma2:2b
+EMBEDDING_MODEL=nomic-embed-text
+EMBEDDING_PROVIDER=ollama   # ollama | openai_compatible
+# EMBEDDING_BASE_URL=       # 空ならLLM_BASE_URLを流用
 
 # Azure Blob Storage（terraform output -raw storage_connection_string）
 AZURE_STORAGE_CONNECTION_STRING=<connection_string>
@@ -108,7 +108,7 @@ Azure
 
 ### Step 1: RAGの基本 ✅ 完了
 - [x] レイヤードアーキテクチャ導入
-- [x] Azure OpenAI (gpt-4o) でチャット応答
+- [x] ローカルLLM (Ollama) でチャット応答 ※当初は Azure OpenAI gpt-4o で実装、後に刷新
 - [x] ドキュメントアップロード → チャンキング → Embedding → pgvector
 - [x] ベクトル検索 → RAGチャット動作
 - [x] ドキュメント削除API（Blob + ベクトル両方）
@@ -152,7 +152,7 @@ Azure
 - [ ] チャンクサイズ・オーバーラップの調整
 - [ ] Langfuseでトレース確認・コスト把握
 - [ ] Blob Storageの定期ベクトル化バッチ
-- [ ] GPT-4o Vision による画像内容理解
+- [x] Vision による画像内容理解（LLaVA等、Ollama経由・base64送信で実装済み）
 
 ## 9. API設計
 
