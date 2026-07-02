@@ -14,7 +14,7 @@
 
 ## 1. 目的
 
-ChatServiceがDBのエージェント設定 (LLMパラメータ、knowledge_sourcesのsimilarity_k等) を実際に使用するようにする。管理画面でモデル・ナレッジソースも編集可能にする。**Azure OpenAIとローカルLLM (Ollama) を管理画面から切り替えられるようにする。**
+ChatServiceがDBのエージェント設定 (LLMパラメータ、knowledge_sourcesのsimilarity_k等) を実際に使用するようにする。管理画面でモデル・ナレッジソースも編集可能にする。**複数のLLMプロバイダー (Ollama / OpenAI互換サーバ / Claude CLI) を管理画面から切り替えられるようにする。**
 
 **現状の問題**:
 - 管理画面でパラメータを変更しても、ChatServiceがハードコード値を使用しているため反映されない
@@ -26,8 +26,8 @@ ChatServiceがDBのエージェント設定 (LLMパラメータ、knowledge_sour
 1. 管理者として、管理画面でLLMのtemperature/max_tokensを変更すると、次のチャットからその値が反映される
 2. 管理者として、knowledge_sourcesのsimilarity_kを管理画面で変更できる
 3. 管理者として、管理画面でモデル一覧・ナレッジソース一覧を編集できる
-4. **管理者として、管理画面でチャットに使うLLMをAzure OpenAI / Ollama から切り替えられる**
-5. **管理者として、Ollamaで利用可能なモデル (llama3.1, gemma2等) を選択できる**
+4. **管理者として、管理画面でチャットに使うLLMを Ollama / OpenAI互換サーバ / Claude CLI から切り替えられる**
+5. **管理者として、Ollamaで利用可能なモデル (gemma2:2b, llama3.2:3b等) を選択できる**
 6. **開発者として、新しいLLMプロバイダーを追加する際に、既存コードへの影響が最小限で済む**
 
 ## 3. 受入基準
@@ -37,9 +37,9 @@ ChatServiceがDBのエージェント設定 (LLMパラメータ、knowledge_sour
 3. 管理画面でLLMモデルのtemperature/max_tokensを編集・保存できること
 4. 管理画面でknowledge_sourcesのsimilarity_k/thresholdを編集・保存できること
 5. 設定変更後、再起動なしで次のリクエストから反映されること
-6. **`llm_models` テーブルの `provider` カラムに基づいて、Azure OpenAI / Ollama のLLMインスタンスが生成されること**
+6. **`llm_models` テーブルの `provider` カラムに基づいて、ollama / openai_compatible / claude_cli のLLMインスタンスが生成されること**
 7. **管理画面でデフォルトモデルを切り替えると、次のチャットから切り替わること**
-8. **Ollamaが起動していない場合、エラーメッセージが返り、Azure OpenAIにフォールバックしないこと (明示的な切り替えを尊重)**
+8. **選択したプロバイダーが起動していない場合、エラーメッセージが返り、他プロバイダーに暗黙フォールバックしないこと (明示的な切り替えを尊重)**
 
 ## 4. 技術アプローチ
 
@@ -47,44 +47,41 @@ ChatServiceがDBのエージェント設定 (LLMパラメータ、knowledge_sour
 
 ```
 llm_models テーブル
-├── gpt-4o         → provider: "azure_openai"  → AzureChatOpenAI
-├── llama3.1:8b    → provider: "ollama"         → ChatOllama
-└── gemma2:9b      → provider: "ollama"         → ChatOllama
+├── gemma2:2b    → provider: "ollama"             → ChatOllama
+├── llama3.2:3b  → provider: "ollama"             → ChatOllama
+├── (vLLM等)     → provider: "openai_compatible"  → ChatOpenAI(base_url=.../v1)
+└── claude       → provider: "claude_cli"         → ChatClaudeCLI
 ```
 
 **LLMファクトリパターン**: providerに応じたLangChainインスタンスを生成する関数を用意。
+OpenAI互換サーバ (vLLM/llama.cpp/LM Studio/TGI/LocalAI/Ollama`/v1`) は `openai_compatible` 1本で吸収する。
 
 ```python
-# backend/services/llm_factory.py
+# backend/services/llm_factory.py (実装準拠)
 def create_llm(model: LLMModelInfo, settings: Settings) -> BaseChatModel:
-    if model.provider == "azure_openai":
-        return AzureChatOpenAI(
-            azure_deployment=model.deployment_name,
-            azure_endpoint=settings.azure_openai_endpoint,
-            api_key=settings.azure_openai_api_key,
-            api_version=model.config.get("api_version", "2024-08-01-preview"),
-            temperature=model.temperature,
+    config = model.config or {}
+    if model.provider == "claude_cli":
+        from infrastructure.claude_cli import ChatClaudeCLI
+        return ChatClaudeCLI(
+            model_name=model.deployment_name or "claude",
             max_tokens=model.max_tokens,
-            streaming=True,
         )
-    elif model.provider == "ollama":
-        return ChatOllama(
-            model=model.deployment_name,  # e.g. "llama3.1:8b"
-            base_url=model.config.get("base_url", "http://ollama:11434"),
-            temperature=model.temperature,
-            num_predict=model.max_tokens,
-        )
-    elif model.provider == "vllm":
+    if model.provider == "openai_compatible":
+        from langchain_openai import ChatOpenAI
         return ChatOpenAI(
-            model=model.deployment_name,  # e.g. "meta-llama/Llama-3.1-8B-Instruct"
-            base_url=model.config.get("base_url", "http://vllm:8000/v1"),
-            api_key="dummy",  # vLLM doesn't require a real key
-            temperature=model.temperature,
+            model=model.deployment_name,
+            base_url=config.get("base_url", settings.llm_base_url),  # 例 http://vllm:8000/v1
+            api_key=config.get("api_key", "dummy"),  # ローカルサーバはキー不要
+            temperature=model.temperature or 0.7,
             max_tokens=model.max_tokens,
-            streaming=True,
         )
-    else:
-        raise ValueError(f"Unknown provider: {model.provider}")
+    # デフォルト: Ollama (ネイティブAPI)
+    return ChatOllama(
+        model=model.deployment_name,  # 例 "gemma2:2b"
+        base_url=config.get("base_url", settings.llm_base_url),
+        temperature=model.temperature or 0.7,
+        num_predict=model.max_tokens,
+    )
 ```
 
 ### 4.2 バックエンド変更
@@ -181,7 +178,7 @@ fi
 
 **`frontend/src/pages/Admin.tsx`**:
 - モデル一覧セクションに編集ボタン追加 (provider, deployment_name, temperature, max_tokensフォーム)
-- モデル追加ボタン (プロバイダー選択 → Azure OpenAI / Ollama)
+- モデル追加ボタン (プロバイダー選択 → Ollama / OpenAI互換 / Claude CLI)
 - デフォルトモデル切り替えボタン (is_default トグル)
 - ナレッジソースセクションに編集ボタン追加 (similarity_k, thresholdフォーム)
 - 直接 `fetch` → `apiService` 経由にリファクタ
@@ -205,50 +202,53 @@ fi
 
 ```sql
 ALTER TABLE llm_models
-  ADD COLUMN provider VARCHAR(50) NOT NULL DEFAULT 'azure_openai',
+  ADD COLUMN provider VARCHAR(50) NOT NULL DEFAULT 'ollama',
   ADD COLUMN config JSONB DEFAULT '{}';
-  -- endpoint_env_var, api_key_env_var, api_version は config JSONB に移行
+  -- 旧 endpoint_env_var, api_key_env_var, api_version は撤去 (config JSONB に統合)
 ```
 
 **provider別のconfigスキーマ**:
 
 | provider | config内容 |
 |---------|-----------|
-| `azure_openai` | `{"api_version": "2024-08-01-preview", "endpoint_env_var": "AZURE_OPENAI_ENDPOINT", "api_key_env_var": "AZURE_OPENAI_API_KEY"}` |
-| `ollama` | `{"base_url": "http://ollama:11434"}` |
-| `vllm` | `{"base_url": "http://vllm:8000/v1"}` |
+| `ollama` | `{"base_url": "http://ollama-cpu:11434"}` |
+| `openai_compatible` | `{"base_url": "http://vllm:8000/v1", "api_key": "dummy"}` (vLLM/llama.cpp/LM Studio/TGI/LocalAI) |
+| `claude_cli` | `{}` (deployment_name=`claude`) |
 
 ### seedデータ
 
 ```sql
--- Azure OpenAI (既存)
+-- Ollama (デフォルト)
 INSERT INTO llm_models (name, provider, deployment_name, temperature, is_default, config)
-VALUES ('gpt-4o', 'azure_openai', 'gpt-4o', 0.7, true,
-  '{"api_version": "2024-08-01-preview"}');
+VALUES ('gemma2:2b', 'ollama', 'gemma2:2b', 0.7, true,
+  '{"base_url": "http://ollama-cpu:11434"}');
 
--- Ollama (新規)
-INSERT INTO llm_models (name, provider, deployment_name, temperature, config)
-VALUES ('llama3.1:8b', 'ollama', 'llama3.1:8b', 0.7,
-  '{"base_url": "http://ollama:11434"}');
+INSERT INTO llm_models (name, provider, deployment_name, temperature, is_default, config)
+VALUES ('llama3.2:3b', 'ollama', 'llama3.2:3b', 0.7, false,
+  '{"base_url": "http://ollama-cpu:11434"}');
 
--- vLLM (新規、GPU環境のみ)
-INSERT INTO llm_models (name, provider, deployment_name, temperature, config)
-VALUES ('llama3.1-vllm', 'vllm', 'meta-llama/Llama-3.1-8B-Instruct', 0.7,
-  '{"base_url": "http://vllm:8000/v1"}');
+-- Claude CLI
+INSERT INTO llm_models (name, provider, deployment_name, temperature, is_default, config)
+VALUES ('claude (CLI)', 'claude_cli', 'claude', 0.7, false, '{}');
+
+-- OpenAI互換サーバ (例: vLLM。GPU環境で任意に追加)
+-- INSERT INTO llm_models (name, provider, deployment_name, temperature, is_default, config)
+-- VALUES ('llama3.1-vllm', 'openai_compatible', 'meta-llama/Llama-3.1-8B-Instruct', 0.7, false,
+--   '{"base_url": "http://vllm:8000/v1", "api_key": "dummy"}');
 ```
 
 ## 7. 依存ライブラリ追加
 
 ```
 langchain-ollama>=0.2.0
-langchain-openai>=0.2.0   # vLLM用 (OpenAI互換APIで接続)
+langchain-openai>=0.2.0   # openai_compatible用 (vLLM/llama.cpp/LM Studio等にOpenAI互換APIで接続)
 ```
 
 ## 8. リスク・留意事項
 
 - **キャッシュ戦略**: リクエストごとにDB問い合わせは非効率。TTL付きキャッシュ (60秒) を設け、手動キャッシュクリアAPIも用意する
 - **LLMインスタンス再生成**: モデル切り替え時にインスタンスを再生成する必要がある。キャッシュキーにmodel_idを含めることで、同一モデルの再生成を避ける
-- **Ollamaモデルの初回ダウンロード**: `ollama pull llama3.1:8b` が必要。初回起動時に自動pullするスクリプトを用意するか、手順をドキュメント化する
+- **Ollamaモデルの初回ダウンロード**: `ollama pull gemma2:2b` が必要。初回起動時に自動pullするスクリプトを用意するか、手順をドキュメント化する
 - **GPU未搭載環境**: OllamaはCPUでも動作するが応答速度が大幅に低下。vLLMはGPU必須で `cpu` プロファイルでは起動しない
 - **ストリーミング互換性**: `ChatOllama`, `ChatOpenAI` (vLLM) ともにLangChainの `astream()` に対応。既存のSSEストリーミングコードはそのまま動作する
 - **DBマイグレーション**: 既存の `endpoint_env_var`, `api_key_env_var`, `api_version` カラムから `provider` + `config` への移行スクリプトが必要

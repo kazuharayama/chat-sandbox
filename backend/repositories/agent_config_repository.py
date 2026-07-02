@@ -29,7 +29,7 @@ class AgentConfigRepository:
                 CREATE TABLE IF NOT EXISTS llm_models (
                     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                     name VARCHAR(100) UNIQUE NOT NULL,
-                    provider VARCHAR(50) NOT NULL DEFAULT 'azure_openai',
+                    provider VARCHAR(50) NOT NULL DEFAULT 'ollama',
                     deployment_name VARCHAR(200) NOT NULL,
                     temperature FLOAT DEFAULT 0.7,
                     max_tokens INT,
