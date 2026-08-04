@@ -112,8 +112,7 @@ class AgentConfigRepository:
                     ('gemma2:2b', 'ollama', 'gemma2:2b', 0.7, true,
                      '{"base_url": "http://ollama-cpu:11434"}'),
                     ('llama3.2:3b', 'ollama', 'llama3.2:3b', 0.7, false,
-                     '{"base_url": "http://ollama-cpu:11434"}'),
-                    ('claude (CLI)', 'claude_cli', 'claude', 0.7, false, '{}')
+                     '{"base_url": "http://ollama-cpu:11434"}')
                 """))
                 conn.execute(text("""
                     INSERT INTO agent_definitions (name, display_name, description, agent_type, llm_model_id, is_enabled)

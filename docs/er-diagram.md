@@ -44,7 +44,7 @@ erDiagram
     llm_models {
         UUID id PK
         VARCHAR name UK "gemma2:2b, llama3.2:3b等"
-        VARCHAR provider "ollama | openai_compatible | claude_cli"
+        VARCHAR provider "ollama | openai_compatible"
         VARCHAR deployment_name
         FLOAT temperature
         INT max_tokens
@@ -162,7 +162,7 @@ LangChainのPGVectorが自動管理するテーブル。直接操作しない。
 
 | テーブル | 説明 | レコード増加速度 |
 |---------|------|----------------|
-| `llm_models` | LLMプロバイダー定義 (Ollama, OpenAI互換, Claude CLI) | 手動登録 |
+| `llm_models` | LLMプロバイダー定義 (Ollama, OpenAI互換) | 手動登録 |
 | `agent_definitions` | エージェント定義 | 手動登録 |
 | `prompt_templates` | プロンプト (バージョン管理付き) | プロンプト更新ごと |
 | `agent_parameters` | エージェントパラメータ | 手動設定 |

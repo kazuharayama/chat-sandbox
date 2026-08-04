@@ -176,7 +176,6 @@ export default function Admin() {
     switch (provider) {
       case 'ollama': return 'Ollama';
       case 'openai_compatible': return 'OpenAI互換';
-      case 'claude_cli': return 'Claude (CLI)';
       default: return provider;
     }
   };
@@ -185,7 +184,6 @@ export default function Admin() {
     switch (provider) {
       case 'ollama': return 'bg-purple-100 text-purple-700';
       case 'openai_compatible': return 'bg-emerald-100 text-emerald-700';
-      case 'claude_cli': return 'bg-amber-100 text-amber-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
@@ -439,7 +437,6 @@ export default function Admin() {
                         >
                           <option value="ollama">Ollama</option>
                           <option value="openai_compatible">OpenAI互換 (vLLM/llama.cpp/LM Studio等)</option>
-                          <option value="claude_cli">Claude (CLI)</option>
                         </select>
                       </div>
                       <div>
@@ -457,7 +454,7 @@ export default function Admin() {
                           type="text" value={newModelForm.base_url}
                           onChange={e => setNewModelForm({ ...newModelForm, base_url: e.target.value })}
                           className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 mt-1"
-                          placeholder={newModelForm.provider === 'claude_cli' ? '(不要)' : newModelForm.provider === 'ollama' ? 'http://ollama:11434' : 'http://vllm:8000/v1'}
+                          placeholder={newModelForm.provider === 'ollama' ? 'http://ollama:11434' : 'http://vllm:8000/v1'}
                         />
                       </div>
                     </div>

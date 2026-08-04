@@ -109,7 +109,7 @@ graph TB
     subgraph External["外部サービス"]
         PG[(PostgreSQL 16<br/>+ pgvector)]
         Blob[(Azure Blob<br/>Storage)]
-        AOAI[Ollama / Claude CLI<br/>DB設定で切替]
+        AOAI[Ollama / OpenAI互換<br/>DB設定で切替]
         Embed[Ollama<br/>nomic-embed-text]
         LF[Langfuse v3<br/>トレーシング]
     end
@@ -145,7 +145,7 @@ sequenceDiagram
     participant Vec as VectorRepo
     participant Img as ImageRepo
     participant PG as PostgreSQL
-    participant LLM as Ollama / Claude CLI
+    participant LLM as Ollama / OpenAI互換
     participant LF as Langfuse
 
     User->>Chat: メッセージ入力

@@ -57,7 +57,7 @@ chat-sandbox/
 │   │   ├── context_lab_service.py  # Context Lab (検索/コンテキスト/テスト)
 │   │   ├── document_service.py     # ドキュメント処理
 │   │   ├── speech_service.py       # STT (Whisper) + TTS (Piper)
-│   │   └── llm_factory.py    # LLMプロバイダーファクトリ (Ollama/OpenAI互換/Claude CLI)
+│   │   └── llm_factory.py    # LLMプロバイダーファクトリ (Ollama/OpenAI互換)
 │   ├── repositories/          # データアクセス
 │   │   ├── vector_repository.py     # pgvector (テキスト)
 │   │   ├── image_repository.py      # pgvector (CLIP画像)
@@ -145,8 +145,8 @@ docker compose --profile cpu up -d
 ./scripts/start.sh --cpu   # Ollama(CPU)のみ
 
 # Ollamaモデルダウンロード（./scripts/start.sh で自動。手動の場合）
-docker compose exec ollama-cpu ollama pull llama3.1:8b
-docker compose exec ollama-cpu ollama pull gemma2:9b
+docker compose exec ollama-cpu ollama pull gemma2:2b
+docker compose exec ollama-cpu ollama pull llama3.2:3b
 docker compose exec ollama-cpu ollama pull nomic-embed-text
 
 # 停止
@@ -236,13 +236,11 @@ docker compose down -v && docker compose up -d
 |------------|------|------|--------|
 | `ollama` | ChatOllama | LLM + Embedding | 無料 (ローカル) |
 | `openai_compatible` | ChatOpenAI (`base_url`指定) | LLM (vLLM/llama.cpp/LM Studio/TGI/LocalAI/Ollama`/v1`等) | 無料〜従量 |
-| `claude_cli` | ChatClaudeCLI (`claude -p`) | LLM | Teams契約内 |
 
 | モデル | プロバイダー | 用途 |
 |--------|------------|------|
 | `gemma2:2b` | ollama | チャット (デフォルト) |
 | `llama3.2:3b` | ollama | チャット (代替モデル) |
-| `claude` | claude_cli | チャット (高品質) |
 | `nomic-embed-text` | ollama | テキストEmbedding |
 
 新しいローカルLLMは `provider=openai_compatible` で `config.base_url`(例 `http://vllm:8000/v1`)を指定して管理画面から登録するだけ（コード変更不要）。`llm_factory.py` がプロバイダーに応じたインスタンスを生成。TTL 60秒キャッシュ付き。

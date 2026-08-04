@@ -67,7 +67,7 @@
 | 管理API (CRUD) | 実装済み | `/admin/*` エンドポイントで全設定の読み書き |
 | 管理画面 (プロンプト編集) | 実装済み | プロンプトの編集・バージョン履歴・ロールバックUI |
 | 管理画面 (モデル編集) | 実装済み | temperature, max_tokensの編集。デフォルトモデル切り替え |
-| 管理画面 (モデル追加) | 実装済み | プロバイダー選択 (Ollama / Claude CLI) + パラメータ設定 |
+| 管理画面 (モデル追加) | 実装済み | プロバイダー選択 (Ollama / OpenAI互換) + パラメータ設定 |
 | 管理画面 (ナレッジソース編集) | 実装済み | similarity_kのスライダー編集 |
 | ChatServiceのDB動的読み込み | 実装済み | LLMパラメータ・similarity_kをDBから読み込み。TTL 60秒キャッシュ |
 | LLMキャッシュクリア | 実装済み | `/admin/cache/clear` で手動キャッシュクリア |
@@ -79,8 +79,7 @@
 | Ollama (ローカルLLM) | 実装済み | gemma2:2b / llama3.2:3b 等。GPU/CPU両対応。デフォルトプロバイダー |
 | OpenAI互換サーバ | 実装済み | `provider=openai_compatible` で vLLM/llama.cpp/LM Studio/TGI/LocalAI 等を `base_url` 指定で利用 (ChatOpenAI) |
 | Embedding (テキスト) | 実装済み | nomic-embed-text でベクトル化。`EMBEDDING_PROVIDER` で Ollama / OpenAI互換 を切り替え |
-| Claude CLI (`claude -p`) | 実装済み | LangChain BaseChatModel ラッパー (ChatClaudeCLI)。Teams契約内で利用 |
-| LLMプロバイダー切り替え | 実装済み | 管理画面から Ollama / OpenAI互換 / Claude CLI を切り替え |
+| LLMプロバイダー切り替え | 実装済み | 管理画面から Ollama / OpenAI互換 を切り替え |
 | GPU自動検出 | 実装済み | `scripts/start.sh` でGPU有無を検出し、docker compose profilesで切り替え |
 | LLMファクトリ | 実装済み | `llm_factory.py` でproviderに応じたインスタンス生成。TTLキャッシュ付き |
 
@@ -138,7 +137,7 @@ Frontend (React 19) → Backend (FastAPI) → PostgreSQL (pgvector)
                             │
                     ┌───────┼───────┐
                     ▼       ▼       ▼
-            Ollama / Claude CLI  Blob  Langfuse
+            Ollama / OpenAI互換  Blob  Langfuse
 ```
 
 ## 関連ドキュメント

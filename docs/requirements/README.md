@@ -16,12 +16,12 @@
 | Step 1: RAGの基本 | 完了 | レイヤードアーキテクチャ、Ollama、pgvector |
 | Step 2: UX改善 | 完了 | SSEストリーミング、セッション管理、Gemini風UI |
 | Step 3: マルチモーダル + Azure | 完了 | CLIP、Azure Blob Storage、Terraform |
-| Step 4: エージェント設定基盤 | **完了** | DB動的読み込み、管理画面UI、Ollama/Claude CLI切替 |
+| Step 4: エージェント設定基盤 | **完了** | DB動的読み込み、管理画面UI、Ollama/OpenAI互換切替 |
 | Step 5: 認証 | **完了** | Entra ID + MSAL + Terraform。全エンドポイント認証適用 |
 | Step 5.5: 音声 (STT/TTS) | **完了** | Whisper (STT) + Piper (TTS)。マイクボタンUI |
 | Step 5.5: タスク管理 | **完了** | カンバンボード (TODO/進行中/完了) |
 | Step 5.5: Vision | **完了** | LLaVA等 (Ollama経由、画像base64送信) |
-| Step 5.6: LLM刷新 | **完了** | Azure OpenAI廃止、Ollama一本化 + Claude CLI追加 |
+| Step 5.6: LLM刷新 | **完了** | Azure OpenAI廃止、ローカルLLM (Ollama/OpenAI互換) に一本化 |
 | Step 6: マルチエージェント (FB) | **完了** | LangGraph Search Agent (Plan→Retrieve→Evaluate→Answer) |
 | Step 7: 精度改善 (FE) | 未着手 | |
 
@@ -41,6 +41,7 @@
 | FC | 音声対話 (STT/TTS) | P2 | XL | なし | **完了** (Whisper+Piper) | [FC-voice.md](FC-voice.md) |
 | FD | 認証統合 (Entra ID) | P1 | S | なし | **完了** | [FD-auth.md](FD-auth.md) |
 | FE | 精度改善・運用基盤 | P2 | L | F0, FA | 未着手 | [FE-accuracy.md](FE-accuracy.md) |
+| FF | モデル切替時の品質保証 | P1 | L | F0, FA, FE | 未着手 | [FF-model-switch-qa.md](FF-model-switch-qa.md) |
 
 **複雑度の目安**: S=数日, M=1週間, L=2-3週間, XL=3-4週間
 
@@ -54,6 +55,9 @@ F0 (Step4完了) ──► FA (Context Lab) ──► FB (Search Agent)
                         │                    │
                         ▼                    │
                    FE (精度改善) ◄───────────┘
+                        │
+                        ▼
+                   FF (モデル切替品質保証) ── FEの評価基盤を利用
 
 FC (Voice) ──────── [独立・いつでも着手可]
 ```
@@ -63,6 +67,7 @@ FC (Voice) ──────── [独立・いつでも着手可]
 - **FA→FB**: Search AgentのチューニングにContext Labのプレビュー機能が必要
 - **FDは独立**: `core/auth.py` 実装済み + グレースフルスキップ付きで並行可能
 - **FCは直交**: 既存アーキテクチャと独立しており、いつでも着手可
+- **FFはFE依存**: モデル比較・切替時の回帰検知に FE の評価基盤を使う
 
 ## 5. 実装フェーズ
 

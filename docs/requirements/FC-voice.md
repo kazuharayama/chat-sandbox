@@ -28,7 +28,7 @@
 2. Whisper (faster-whisper) でテキストに変換され、`{text}` が返ること
 3. 変換テキストが既存のチャット入力 (MessageInput) に反映され、通常の `/chat` フローに渡せること
 4. 任意のテキストを Piper で WAV に合成し、ブラウザで再生できること
-5. STT/TTS が Ollama/Claude と同様にローカルで完結し、Azure等の外部キーを要さないこと
+5. STT/TTS が Ollama と同様にローカルで完結し、Azure等の外部キーを要さないこと
 
 ## 4. 技術アプローチ (実装済み)
 

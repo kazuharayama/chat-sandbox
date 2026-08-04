@@ -29,7 +29,7 @@ flowchart TD
 
     BuildPrompt[プロンプト構築<br/>system + 履歴 + 検索結果 + 質問]
 
-    BuildPrompt --> LLM[Ollama / Claude CLI<br/>DB設定で切替]
+    BuildPrompt --> LLM[Ollama / OpenAI互換<br/>DB設定で切替]
     LLM -->|SSE Stream| Response[トークンを逐次返却]
     Response --> SaveBot[ボットメッセージをDB保存]
     SaveBot --> User

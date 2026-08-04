@@ -31,7 +31,7 @@ cmos-maintenance-appのバックエンド構成問題を踏まえ、ベストプ
 | Frontend | React 19, TypeScript, Vite 7, Tailwind CSS |
 | Backend | Python 3.11, FastAPI, LangChain |
 | Database | PostgreSQL 16 + pgvector |
-| LLM | Ollama / OpenAI互換サーバ / Claude CLI（管理画面で切替, SSEストリーミング） |
+| LLM | Ollama / OpenAI互換サーバ（管理画面で切替, SSEストリーミング） |
 | Embedding (テキスト) | Ollama nomic-embed-text（`EMBEDDING_PROVIDER`でOpenAI互換にも切替可） |
 | Embedding (画像) | CLIP ViT-B-32（sentence-transformers） |
 | ファイル保存 | Azure Blob Storage |

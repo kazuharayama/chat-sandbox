@@ -1,190 +1,46 @@
-# F0: エージェント設定基盤の完成
+# F0: エージェント設定
 
 | 項目 | 内容 |
 |------|------|
 | 優先度 | P0 (前提) |
 | 複雑度 | M |
 | 依存 | なし |
-| 状態 | **完了** |
-
-> **更新 (2026-06-17)**: Azure OpenAI を廃止し、現在は **`ollama` / `openai_compatible` / `claude_cli`** の3プロバイダー構成 (`backend/services/llm_factory.py`)。
-> デフォルトモデルは **`gemma2:2b`** (代替 `llama3.2:3b`)、高品質用に Claude CLI (`claude -p`)。
-> 本文中の "azure_openai" / "gpt-4o" / "vllm" 記述は実装当時のもので**現在は対応しない**。
-> vLLM/llama.cpp/LM Studio 等の OpenAI 互換サーバは `provider=openai_compatible` + `config.base_url`(例 `http://vllm:8000/v1`) で扱う (コード変更不要)。
 
 ## 1. 目的
 
-ChatServiceがDBのエージェント設定 (LLMパラメータ、knowledge_sourcesのsimilarity_k等) を実際に使用するようにする。管理画面でモデル・ナレッジソースも編集可能にする。**複数のLLMプロバイダー (Ollama / OpenAI互換サーバ / Claude CLI) を管理画面から切り替えられるようにする。**
-
-**現状の問題**:
-- 管理画面でパラメータを変更しても、ChatServiceがハードコード値を使用しているため反映されない
-- `AzureChatOpenAI` がハードコードされており、他のLLMプロバイダーを使えない
-- `llm_models` テーブルがAzure OpenAI前提のカラム設計になっている
+エージェントの設定 — 使用するLLMプロバイダー/モデル、生成パラメータ、プロンプト、検索パラメータ (similarity_k 等) — を DB で一元管理し、管理画面から変更できるようにする。コードを変更せずに、使用するLLM (Ollama / OpenAI互換サーバ) の切り替えや検索挙動の調整ができ、変更が次のチャットに反映される状態にする。
 
 ## 2. ユーザーストーリー
 
-1. 管理者として、管理画面でLLMのtemperature/max_tokensを変更すると、次のチャットからその値が反映される
-2. 管理者として、knowledge_sourcesのsimilarity_kを管理画面で変更できる
-3. 管理者として、管理画面でモデル一覧・ナレッジソース一覧を編集できる
-4. **管理者として、管理画面でチャットに使うLLMを Ollama / OpenAI互換サーバ / Claude CLI から切り替えられる**
-5. **管理者として、Ollamaで利用可能なモデル (gemma2:2b, llama3.2:3b等) を選択できる**
-6. **開発者として、新しいLLMプロバイダーを追加する際に、既存コードへの影響が最小限で済む**
+1. 管理者として、応答の生成パラメータ（温度・最大長など）を管理画面から調整したい。再デプロイせず応答の傾向を変えられるように。
+2. 管理者として、検索の挙動（取得件数など）を管理画面から調整したい。回答の根拠の集め方をチューニングできるように。
+3. 管理者として、チャットに使うLLM（プロバイダー・モデル）を管理画面から選び・切り替えたい。用途やコストで使い分けられるように。
+4. 開発者として、新しいLLMプロバイダー/モデルを設定の追加だけで導入したい。コード改修なしに選択肢を増やせるように。
 
 ## 3. 受入基準
 
-1. ChatServiceがLLMインスタンス生成時に `llm_models` テーブルのtemperature/max_tokensを使用すること
-2. `ChatService._retrieve()` が `knowledge_sources.config.similarity_k` を使用すること
-3. 管理画面でLLMモデルのtemperature/max_tokensを編集・保存できること
-4. 管理画面でknowledge_sourcesのsimilarity_k/thresholdを編集・保存できること
-5. 設定変更後、再起動なしで次のリクエストから反映されること
-6. **`llm_models` テーブルの `provider` カラムに基づいて、ollama / openai_compatible / claude_cli のLLMインスタンスが生成されること**
-7. **管理画面でデフォルトモデルを切り替えると、次のチャットから切り替わること**
-8. **選択したプロバイダーが起動していない場合、エラーメッセージが返り、他プロバイダーに暗黙フォールバックしないこと (明示的な切り替えを尊重)**
+1. チャット応答が、DBのモデル設定の生成パラメータ（温度・最大長）に従って生成されること
+2. 検索時に、DBの検索設定（取得件数 similarity_k 等）が使われること
+3. 管理画面でモデルの生成パラメータを編集・保存できること
+4. 管理画面で検索設定（取得件数・しきい値）を編集・保存できること
+5. 設定変更（生成パラメータ・デフォルトモデルの切り替えを含む）が、再起動なしで次のリクエストから反映されること
+6. モデルに設定された provider（ollama / openai_compatible）に応じたLLMで応答が生成されること
+7. 選択中のプロバイダーが利用不可のとき、他プロバイダーに暗黙で切り替えず、エラーを返すこと
 
 ## 4. 技術アプローチ
 
-### 4.1 LLMプロバイダー切り替え設計
+### 4.1 LLMプロバイダーの抽象化
 
-```
-llm_models テーブル
-├── gemma2:2b    → provider: "ollama"             → ChatOllama
-├── llama3.2:3b  → provider: "ollama"             → ChatOllama
-├── (vLLM等)     → provider: "openai_compatible"  → ChatOpenAI(base_url=.../v1)
-└── claude       → provider: "claude_cli"         → ChatClaudeCLI
-```
+- provider の値に応じて LangChain のチャットモデルを生成するファクトリを1箇所に設ける。
+- provider は2種類とする: `ollama`（ローカル・ネイティブAPI）/ `openai_compatible`（OpenAI互換APIを持つサーバ全般）。
+- vLLM / llama.cpp / LM Studio / TGI / LocalAI などの OpenAI 互換サーバは、個別実装せず `openai_compatible` の1種類で扱う。新しいサーバの追加はモデル登録のみで済み、コード変更を要しない。
+- 接続先（base_url 等）とモデル名は、モデル定義の設定値として与える。
 
-**LLMファクトリパターン**: providerに応じたLangChainインスタンスを生成する関数を用意。
-OpenAI互換サーバ (vLLM/llama.cpp/LM Studio/TGI/LocalAI/Ollama`/v1`) は `openai_compatible` 1本で吸収する。
+### 4.2 ローカルLLMの起動（GPU / CPU）
 
-```python
-# backend/services/llm_factory.py (実装準拠)
-def create_llm(model: LLMModelInfo, settings: Settings) -> BaseChatModel:
-    config = model.config or {}
-    if model.provider == "claude_cli":
-        from infrastructure.claude_cli import ChatClaudeCLI
-        return ChatClaudeCLI(
-            model_name=model.deployment_name or "claude",
-            max_tokens=model.max_tokens,
-        )
-    if model.provider == "openai_compatible":
-        from langchain_openai import ChatOpenAI
-        return ChatOpenAI(
-            model=model.deployment_name,
-            base_url=config.get("base_url", settings.llm_base_url),  # 例 http://vllm:8000/v1
-            api_key=config.get("api_key", "dummy"),  # ローカルサーバはキー不要
-            temperature=model.temperature or 0.7,
-            max_tokens=model.max_tokens,
-        )
-    # デフォルト: Ollama (ネイティブAPI)
-    return ChatOllama(
-        model=model.deployment_name,  # 例 "gemma2:2b"
-        base_url=config.get("base_url", settings.llm_base_url),
-        temperature=model.temperature or 0.7,
-        num_predict=model.max_tokens,
-    )
-```
-
-### 4.2 バックエンド変更
-
-**新規: `backend/services/llm_factory.py`**
-- `create_llm(model, settings)` — プロバイダーに応じたLangChain LLMインスタンスを生成
-
-**`backend/services/chat_service.py`**:
-- `__init__` でLLMをハードコード初期化する代わりに、リクエストごと (TTL 60秒キャッシュ付き) で `agent_config_repo.get_default_model()` → `llm_factory.create_llm()` でインスタンスを生成
-- `_retrieve()` で `agent_config_repo.list_knowledge_sources()` から `similarity_k` を読み込み
-
-**`backend/routers/admin.py`**:
-- `PUT /admin/models/{model_id}` エンドポイント追加
-- `POST /admin/models` エンドポイント追加 (新規モデル登録)
-- `PUT /admin/knowledge-sources/{source_id}` エンドポイント追加
-
-**`backend/repositories/agent_config_repository.py`**:
-- `update_model()` メソッド追加
-- `create_model()` メソッド追加
-- `update_knowledge_source()` メソッド追加
-
-### 4.3 Docker Compose変更
-
-### 4.3 Docker Compose + GPU/CPU プロファイル
-
-`docker compose --profile gpu up` / `docker compose --profile cpu up` で切り替え。
-
-**`docker-compose.yml`**:
-```yaml
-# --- ローカルLLM (GPU環境) ---
-ollama-gpu:
-  image: ollama/ollama
-  profiles: ["gpu"]
-  ports:
-    - "11434:11434"
-  volumes:
-    - ollama_data:/root/.ollama
-  deploy:
-    resources:
-      reservations:
-        devices:
-          - driver: nvidia
-            count: all
-            capabilities: [gpu]
-
-vllm:
-  image: vllm/vllm-openai
-  profiles: ["gpu"]
-  ports:
-    - "8001:8000"
-  environment:
-    - MODEL_NAME=meta-llama/Llama-3.1-8B-Instruct
-  deploy:
-    resources:
-      reservations:
-        devices:
-          - driver: nvidia
-            count: all
-            capabilities: [gpu]
-  volumes:
-    - vllm_cache:/root/.cache/huggingface
-
-# --- ローカルLLM (CPU環境) ---
-ollama-cpu:
-  image: ollama/ollama
-  profiles: ["cpu"]
-  ports:
-    - "11434:11434"
-  volumes:
-    - ollama_data:/root/.ollama
-  # GPU設定なし。CPU推論 (低速だが動作する)
-```
-
-**新規: `scripts/start.sh`** — GPU自動検出 + 適切なプロファイルで起動:
-```bash
-#!/bin/bash
-# GPU検出: nvidia-smi が使えるか + Docker GPU ランタイムがあるか
-if command -v nvidia-smi &>/dev/null && docker info 2>/dev/null | grep -q "nvidia"; then
-  echo "GPU detected. Starting with GPU profile..."
-  docker compose --profile gpu up -d
-else
-  echo "No GPU detected. Starting with CPU profile..."
-  docker compose --profile cpu up -d
-fi
-```
-
-> **ポイント**:
-> - `nvidia-smi` の存在だけでなく、Docker の GPU ランタイム対応もチェック
-> - vLLM は GPU 必須のため `gpu` プロファイルにのみ配置
-> - Ollama は GPU/CPU 両方で動作するが、GPU 環境では GPU 版を優先
-> - プロファイルなしの `docker compose up` では既存サービス (frontend, backend, postgres等) のみ起動し、ローカルLLMは起動しない
-
-### 4.4 フロントエンド変更
-
-**`frontend/src/pages/Admin.tsx`**:
-- モデル一覧セクションに編集ボタン追加 (provider, deployment_name, temperature, max_tokensフォーム)
-- モデル追加ボタン (プロバイダー選択 → Ollama / OpenAI互換 / Claude CLI)
-- デフォルトモデル切り替えボタン (is_default トグル)
-- ナレッジソースセクションに編集ボタン追加 (similarity_k, thresholdフォーム)
-- 直接 `fetch` → `apiService` 経由にリファクタ
-
-**`frontend/src/services/api.ts`**:
-- admin系APIメソッド追加 (listAgents, createModel, updateModel, updateKnowledgeSource等)
+- ローカルLLM（Ollama / vLLM 等）は Docker Compose のプロファイル（`gpu` / `cpu`）で起動構成を切り替える。
+- 起動スクリプトが GPU の有無を判定し、適切なプロファイルで起動する。
+- vLLM のような GPU 前提のサーバは `gpu` プロファイルにのみ含める。
 
 ## 5. API変更
 
@@ -196,61 +52,35 @@ fi
 
 ## 6. DB変更
 
-### llm_models テーブル変更
+### llm_models（モデル定義）
 
-既存カラムをプロバイダー非依存に再設計:
+プロバイダー非依存の設計にする。主なフィールド:
 
-```sql
-ALTER TABLE llm_models
-  ADD COLUMN provider VARCHAR(50) NOT NULL DEFAULT 'ollama',
-  ADD COLUMN config JSONB DEFAULT '{}';
-  -- 旧 endpoint_env_var, api_key_env_var, api_version は撤去 (config JSONB に統合)
-```
+- `provider`: `ollama` / `openai_compatible`
+- `config`(JSONB): プロバイダー固有の接続情報（base_url、必要なら api_key）
+- 生成パラメータ（temperature / max_tokens）、`deployment_name`（モデル名）、`is_default`
 
-**provider別のconfigスキーマ**:
+接続情報はすべて `config` に集約し、Azure 専用だった旧カラム（endpoint / api_key / api_version）は持たない。
 
-| provider | config内容 |
-|---------|-----------|
-| `ollama` | `{"base_url": "http://ollama-cpu:11434"}` |
-| `openai_compatible` | `{"base_url": "http://vllm:8000/v1", "api_key": "dummy"}` (vLLM/llama.cpp/LM Studio/TGI/LocalAI) |
-| `claude_cli` | `{}` (deployment_name=`claude`) |
+provider ごとの `config` の形:
 
-### seedデータ
+| provider | config |
+|------|------|
+| `ollama` | `{ base_url }` |
+| `openai_compatible` | `{ base_url, api_key }`（vLLM/llama.cpp/LM Studio/TGI/LocalAI） |
 
-```sql
--- Ollama (デフォルト)
-INSERT INTO llm_models (name, provider, deployment_name, temperature, is_default, config)
-VALUES ('gemma2:2b', 'ollama', 'gemma2:2b', 0.7, true,
-  '{"base_url": "http://ollama-cpu:11434"}');
+### 初期データ（seed）
 
-INSERT INTO llm_models (name, provider, deployment_name, temperature, is_default, config)
-VALUES ('llama3.2:3b', 'ollama', 'llama3.2:3b', 0.7, false,
-  '{"base_url": "http://ollama-cpu:11434"}');
+起動時に初期モデルを投入する（既定モデル1件 + 代替）。具体的なモデル名・接続先の値は環境設定に従い、本書には固定値を書かない。
 
--- Claude CLI
-INSERT INTO llm_models (name, provider, deployment_name, temperature, is_default, config)
-VALUES ('claude (CLI)', 'claude_cli', 'claude', 0.7, false, '{}');
+## 7. 依存ライブラリ
 
--- OpenAI互換サーバ (例: vLLM。GPU環境で任意に追加)
--- INSERT INTO llm_models (name, provider, deployment_name, temperature, is_default, config)
--- VALUES ('llama3.1-vllm', 'openai_compatible', 'meta-llama/Llama-3.1-8B-Instruct', 0.7, false,
---   '{"base_url": "http://vllm:8000/v1", "api_key": "dummy"}');
-```
-
-## 7. 依存ライブラリ追加
-
-```
-langchain-ollama>=0.2.0
-langchain-openai>=0.2.0   # openai_compatible用 (vLLM/llama.cpp/LM Studio等にOpenAI互換APIで接続)
-```
+- `langchain-ollama`（Ollama 連携）
+- `langchain-openai`（OpenAI 互換サーバへの接続に使用）
 
 ## 8. リスク・留意事項
 
-- **キャッシュ戦略**: リクエストごとにDB問い合わせは非効率。TTL付きキャッシュ (60秒) を設け、手動キャッシュクリアAPIも用意する
-- **LLMインスタンス再生成**: モデル切り替え時にインスタンスを再生成する必要がある。キャッシュキーにmodel_idを含めることで、同一モデルの再生成を避ける
-- **Ollamaモデルの初回ダウンロード**: `ollama pull gemma2:2b` が必要。初回起動時に自動pullするスクリプトを用意するか、手順をドキュメント化する
-- **GPU未搭載環境**: OllamaはCPUでも動作するが応答速度が大幅に低下。vLLMはGPU必須で `cpu` プロファイルでは起動しない
-- **ストリーミング互換性**: `ChatOllama`, `ChatOpenAI` (vLLM) ともにLangChainの `astream()` に対応。既存のSSEストリーミングコードはそのまま動作する
-- **DBマイグレーション**: 既存の `endpoint_env_var`, `api_key_env_var`, `api_version` カラムから `provider` + `config` への移行スクリプトが必要
-- **vLLMのモデルダウンロード**: 初回起動時にHuggingFaceからモデルをダウンロードする (数GB〜数十GB)。`vllm_cache` ボリュームでキャッシュし再ダウンロードを防止
-- **Docker GPU ランタイム**: GPU利用にはホストに `nvidia-container-toolkit` のインストールが必要。`scripts/start.sh` でチェックし、未インストール時はガイドメッセージを表示
+- 設定反映のタイミング: モデルインスタンスを短期キャッシュするため、変更が即座に反映されない場合がある。手動クリアまたは短いTTLで「次のリクエストから反映」を担保する。
+- ローカルLLMの初回モデル取得: 対象モデルを事前に取得（pull）する必要がある。起動時の自動取得または手順のドキュメント化で対応する。
+- GPU / CPU: Ollama は CPU でも動くが低速。vLLM は GPU 必須で `cpu` プロファイルでは起動しない。GPU 利用にはホストに NVIDIA Container Toolkit が必要。
+- ストリーミング互換性: いずれのプロバイダーも逐次ストリーミングに対応し、既存の SSE 応答はそのまま動作する。

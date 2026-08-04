@@ -14,12 +14,6 @@ def create_llm(model: LLMModelInfo, settings: Settings) -> BaseChatModel:
     """Create a LangChain chat model instance based on provider type."""
     config = model.config or {}
 
-    if model.provider == "claude_cli":
-        from infrastructure.claude_cli import ChatClaudeCLI
-        return ChatClaudeCLI(
-            model_name=model.deployment_name or "claude",
-            max_tokens=model.max_tokens,
-        )
     if model.provider == "openai_compatible":
         # Any OpenAI-compatible server: vLLM, llama.cpp, LM Studio, TGI, LocalAI, Ollama(/v1) ...
         from langchain_openai import ChatOpenAI
