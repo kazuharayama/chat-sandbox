@@ -2,6 +2,18 @@
 
 汎用マルチエージェントRAG基盤。ドキュメント（テキスト・画像）をアップロードし、ベクトル検索を活用してLLMが質問に回答する。エージェント設定・プロンプトはDB管理で、管理画面から変更可能。
 
+## 実行環境（最初に読むこと）
+
+- **開発しているこのマシンに GPU は無い（CPU のみ）。** GPU プロファイルをここで起動しない
+- **GPU は別のリモートマシン（RTX 3090）にある。** 接続は SSH で、**リモートでの確認はユーザーが行う**
+- ローカルで使うモデルは軽量なもの（`gemma2:2b`、`llama3.2:3b`）を前提にする
+
+### 承認なしに実行しないこと
+
+- `docker build` / `docker compose build` / `docker compose up --build` — **ユーザーの承認を取ってから**
+- `ollama pull` / `docker pull` — サイズを伝えて承認を取る。事前に `df -h` で空き容量を確認
+- `docker compose down -v` — **DB とアップロードした資産が全て消える。** スキーマ変更時のみ、承認を得てから
+
 ## アーキテクチャ概要
 
 ```
@@ -152,7 +164,7 @@ docker compose exec ollama-cpu ollama pull nomic-embed-text
 # 停止
 docker compose down
 
-# DB再作成（スキーマ変更時）
+# DB再作成（スキーマ変更時）  ⚠️ down -v は DB・アップロード資産を全消去する（「破壊的操作」節を参照）
 docker compose down -v && docker compose up -d
 ```
 
@@ -280,13 +292,34 @@ Password: chat_pass
 
 詳細は `docs/er-diagram.md` を参照。
 
+## 変更後の確認
+
+変更が壊れていないかを機械が判定するための手順。「たぶん動く」で済ませず、これを実行して結果を見る。
+
+```bash
+# 1) 疎通スモーク（アプリ起動済みが前提: ./scripts/start.sh --cpu）
+bash scripts/smoke.sh
+#   成功 -> 最終行 "RESULT: OK"（終了コード 0）
+#   失敗 -> 最終行 "RESULT: NG"（終了コード 1）。どの [CHECK] で落ちたかが出る
+#   ※ chat 工程だけ Ollama + モデル(gemma2:2b) が必要
+
+# 2) 単体テスト（LLM・DB 不要。ホストで走る）
+cd backend && python3 -m pytest
+#   成功 -> "1 passed"（緑 / 終了コード 0）
+```
+
+## 破壊的操作
+
+- **`docker compose down -v`**: ボリュームごと削除するため **DB とアップロード資産（ドキュメント / チャット履歴）が全て消える**。本ファイル内では「起動コマンド」「よく使うコマンド」「注意事項」で通常手順のように登場するが、消える前提でのみ使うこと。
+- **`ollama pull <model>`**: 実行前に `df -h` で空き容量を確認する。**4GB を超えるモデルは人間の承認を取る**（過去にディスクが 100% になり、PC 再起動と長時間の復旧を招いた事故がある）。
+
 ## よく使うコマンド
 
 ```bash
 # バックエンドのみ再起動
 docker compose restart backend
 
-# DB再作成（スキーマ変更時）
+# DB再作成（スキーマ変更時）  ⚠️ down -v は DB・アップロード資産を全消去する（「破壊的操作」節を参照）
 docker compose down -v && docker compose up -d
 
 # ログをリアルタイム監視
@@ -308,6 +341,7 @@ docker compose exec ollama-cpu ollama pull <model>
 - [アーキテクチャ・フロー図](docs/architecture-flow.md) — Mermaidフロー図
 - [機能カタログ](docs/feature-catalog.md) — 全機能の実装状況一覧
 - [ER図](docs/er-diagram.md) — データベーススキーマ
+- [TODO](docs/TODO.md) — **今の作業対象はこれ**。`docs/PRD.md` と `docs/requirements/F0〜FE` は全体像であって、現在の優先順位ではない
 
 ## 注意事項
 
@@ -315,5 +349,5 @@ docker compose exec ollama-cpu ollama pull <model>
 2. **認証**: Entra ID統合済み (MSAL + グループベース)。環境変数未設定時はグレースフルスキップ
 3. **シークレット管理**: `.env` ファイルで管理。将来 Azure Key Vault に移行予定
 4. **Langfuse**: 初期設定済み (pk-lf-local / sk-lf-local)、本番では変更が必要
-5. **DBスキーマ変更時**: `docker compose down -v && docker compose up -d` が必要
+5. **DBスキーマ変更時**: `docker compose down -v && docker compose up -d` が必要（⚠️ `down -v` は DB・アップロード資産を全消去。「破壊的操作」節を参照）
 6. **Terraform**: `terraform apply` でEntra IDリソース作成 → `terraform output` で `.env` 値を取得
