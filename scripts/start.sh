@@ -62,6 +62,15 @@ EXTRA_ARGS="$@"
 # Models to pull on startup (LLM + Embedding)
 OLLAMA_MODELS=("gemma2:2b" "llama3.2:3b" "nomic-embed-text")
 
+# Point backend at the Ollama instance that matches the chosen profile.
+# (backend defaults to ollama-cpu; without this the GPU profile starts
+#  ollama-gpu but the backend keeps looking at ollama-cpu and cannot reach it.)
+if [ "$PROFILE" = "gpu" ]; then
+    export LLM_BASE_URL="${LLM_BASE_URL:-http://ollama-gpu:11434}"
+elif [ "$PROFILE" = "cpu" ]; then
+    export LLM_BASE_URL="${LLM_BASE_URL:-http://ollama-cpu:11434}"
+fi
+
 # Start services
 if [ -n "$PROFILE" ]; then
     echo ""
